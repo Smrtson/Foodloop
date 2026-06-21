@@ -1,0 +1,7 @@
+node_modules/
+dist/
+output/
+.playwright-cli/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js

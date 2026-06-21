@@ -1,0 +1,101 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Surplus bakery trays prepared for donation pickup</title>
+  <desc id="desc">A generated bakery counter scene with sealed trays of bread and pastries ready for food rescue.</desc>
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1600" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="0.46" stop-color="#E7EDF2"/>
+      <stop offset="1" stop-color="#DCE5EC"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="120" y1="522" x2="1480" y2="930" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D9E1E7"/>
+      <stop offset="0.45" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#C9D4DD"/>
+    </linearGradient>
+    <linearGradient id="tray" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#D9E2EA"/>
+      <stop offset="1" stop-color="#94A3B8"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#D7E6EF" stop-opacity="0.48"/>
+    </linearGradient>
+    <radialGradient id="bun" cx="0.4" cy="0.3" r="0.78">
+      <stop stop-color="#F9D680"/>
+      <stop offset="0.62" stop-color="#D89034"/>
+      <stop offset="1" stop-color="#9E5C20"/>
+    </radialGradient>
+    <radialGradient id="egg" cx="0.45" cy="0.35" r="0.8">
+      <stop stop-color="#FFEBA6"/>
+      <stop offset="0.56" stop-color="#E8A83D"/>
+      <stop offset="1" stop-color="#8D4A1E"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#475569" flood-opacity="0.22"/>
+    </filter>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#wall)"/>
+  <path d="M0 492H1600V1000H0V492Z" fill="url(#steel)"/>
+  <path d="M76 533C446 494 1055 493 1524 533" stroke="#FFFFFF" stroke-width="18" stroke-opacity="0.52"/>
+  <path d="M143 618C519 575 1004 575 1450 618" stroke="#AAB8C6" stroke-width="4" stroke-opacity="0.5"/>
+  <g opacity="0.42" filter="url(#soft)">
+    <ellipse cx="473" cy="843" rx="274" ry="74" fill="#64748B"/>
+    <ellipse cx="1095" cy="805" rx="326" ry="82" fill="#64748B"/>
+  </g>
+  <g filter="url(#shadow)">
+    <g transform="translate(142 548) rotate(-4 260 145)">
+      <rect x="0" y="0" width="520" height="292" rx="36" fill="url(#tray)"/>
+      <rect x="24" y="24" width="472" height="226" rx="26" fill="#EDF3F7"/>
+      <rect x="38" y="38" width="444" height="194" rx="22" fill="url(#lid)" stroke="#FFFFFF" stroke-width="6"/>
+      <g opacity="0.9">
+        <ellipse cx="118" cy="108" rx="56" ry="42" fill="url(#bun)"/>
+        <ellipse cx="230" cy="99" rx="58" ry="41" fill="url(#bun)"/>
+        <ellipse cx="343" cy="110" rx="56" ry="43" fill="url(#bun)"/>
+        <ellipse cx="148" cy="177" rx="58" ry="42" fill="url(#bun)"/>
+        <ellipse cx="266" cy="170" rx="58" ry="43" fill="url(#bun)"/>
+        <ellipse cx="382" cy="174" rx="56" ry="42" fill="url(#bun)"/>
+      </g>
+      <path d="M80 72C151 102 264 98 430 69" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.64"/>
+      <path d="M68 216C166 188 318 206 450 190" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+    </g>
+    <g transform="translate(702 510) rotate(3 342 168)">
+      <rect x="0" y="0" width="684" height="336" rx="40" fill="url(#tray)"/>
+      <rect x="28" y="28" width="628" height="262" rx="30" fill="#EFF5F8"/>
+      <rect x="44" y="46" width="596" height="220" rx="26" fill="url(#lid)" stroke="#FFFFFF" stroke-width="7"/>
+      <g>
+        <path d="M134 154C96 112 126 75 175 83C215 90 237 129 207 165C185 191 159 182 134 154Z" fill="url(#bun)"/>
+        <path d="M271 151C232 111 262 70 310 82C351 92 372 127 342 164C320 190 296 181 271 151Z" fill="url(#bun)"/>
+        <path d="M416 151C375 108 407 70 454 82C494 92 516 127 486 164C464 190 441 181 416 151Z" fill="url(#bun)"/>
+        <path d="M548 148C512 108 537 72 586 80C627 87 649 126 619 162C596 190 574 181 548 148Z" fill="url(#bun)"/>
+        <ellipse cx="177" cy="225" rx="52" ry="36" fill="url(#egg)"/>
+        <ellipse cx="309" cy="222" rx="53" ry="36" fill="url(#egg)"/>
+        <ellipse cx="444" cy="222" rx="53" ry="36" fill="url(#egg)"/>
+        <ellipse cx="577" cy="222" rx="52" ry="36" fill="url(#egg)"/>
+      </g>
+      <path d="M84 86C169 125 330 122 590 86" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" opacity="0.66"/>
+      <path d="M82 250C223 218 407 237 596 214" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.48"/>
+    </g>
+    <g transform="translate(404 354) rotate(-1 280 125)">
+      <rect x="0" y="0" width="560" height="250" rx="32" fill="#F4F8FB" stroke="#D4DEE7" stroke-width="4"/>
+      <rect x="28" y="34" width="504" height="156" rx="24" fill="url(#lid)" stroke="#FFFFFF" stroke-width="6"/>
+      <g>
+        <rect x="70" y="78" width="92" height="76" rx="26" fill="#F1C05B"/>
+        <rect x="184" y="76" width="92" height="78" rx="26" fill="#EAB75A"/>
+        <rect x="296" y="76" width="92" height="78" rx="26" fill="#F0C569"/>
+        <rect x="408" y="78" width="92" height="76" rx="26" fill="#E8B04E"/>
+        <path d="M82 104H150M198 104H264M310 104H376M422 104H488" stroke="#9E5C20" stroke-width="5" stroke-linecap="round" opacity="0.34"/>
+      </g>
+      <rect x="66" y="206" width="146" height="18" rx="9" fill="#CBD5E1"/>
+      <rect x="238" y="206" width="248" height="18" rx="9" fill="#E2E8F0"/>
+    </g>
+  </g>
+  <g opacity="0.38">
+    <circle cx="1352" cy="188" r="118" fill="#FFFFFF"/>
+    <circle cx="1262" cy="205" r="18" fill="#10B981"/>
+    <circle cx="1318" cy="152" r="10" fill="#2563EB"/>
+    <circle cx="1430" cy="228" r="14" fill="#F59E0B"/>
+  </g>
+</svg>
