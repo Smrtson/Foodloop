@@ -544,7 +544,7 @@ function CaptureStagePanel({
               <dd>{emptyDraft.holdingStatus}</dd>
             </div>
           </dl>
-          <button type="button" className="button button-logistics" onClick={onAnalyze}>
+          <button type="button" className="button button-primary button-workflow" onClick={onAnalyze}>
             <Sparkles size={17} aria-hidden="true" />
             Analyze Photo
           </button>
@@ -636,7 +636,7 @@ function ReviewStagePanel({
       <div className="stage-actions">
         <button
           type="button"
-          className="button button-primary"
+          className="button button-primary button-workflow"
           disabled={!isDrafted}
           onClick={onContinue}
         >
@@ -802,7 +802,7 @@ function ConfirmStagePanel({
           <input type="checkbox" defaultChecked required />
           <span>I confirm this donor record is ready for matching.</span>
         </label>
-        <button type="submit" className="button button-primary">
+        <button type="submit" className="button button-primary button-workflow">
           <Send size={17} aria-hidden="true" />
           Submit for Matching
         </button>
@@ -828,7 +828,7 @@ function MatchStagePanel({
       <SubmittedBanner batchId={batchId} />
       <NgoPreview status={status} batchId={batchId} draft={draft} />
       <div className="stage-actions">
-        <Link to="/matching" className="button button-secondary">
+        <Link to="/matching" className="button button-primary button-workflow">
           Open Match Queue
           <ArrowRight size={17} aria-hidden="true" />
         </Link>

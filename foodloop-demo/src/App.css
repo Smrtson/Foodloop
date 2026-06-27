@@ -658,15 +658,9 @@ a {
   background: var(--color-green-800);
 }
 
-.button-logistics {
+.button-workflow {
   width: 100%;
-  background: var(--color-blue-600);
-  border-color: var(--color-blue-600);
-  color: var(--color-white);
-}
-
-.button-logistics:not(:disabled):hover {
-  background: var(--color-blue-700);
+  min-width: 0;
 }
 
 .button-secondary {
@@ -953,19 +947,19 @@ a {
 }
 
 .stage-actions {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
 }
 
 .stage-actions .button {
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .form-footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
   align-items: center;
   gap: 14px;
   border-top: 1px solid var(--color-slate-200);
