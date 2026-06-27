@@ -882,6 +882,23 @@ a {
   padding: 0 10px;
 }
 
+.specific-items-field {
+  align-content: start;
+}
+
+.custom-item-input {
+  margin-top: 2px;
+}
+
+.date-time-field input {
+  color-scheme: light;
+}
+
+.date-time-field input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.72;
+}
+
 .field textarea {
   min-height: 54px;
   resize: vertical;

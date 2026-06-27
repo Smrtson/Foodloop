@@ -87,6 +87,63 @@ const intakeStages: Array<{
 const getIntakeStageIndex = (stage: IntakeStage) =>
   intakeStages.findIndex((item) => item.id === stage);
 
+const customItemOption = "Other / custom";
+
+const bakeryItemPresets = [
+  "Assorted buns, rolls, croissants",
+  "Bread boxes",
+  "Pastries and muffins",
+  "Sandwiches and savouries",
+  "Cakes and slices",
+  "Mixed bakery surplus",
+  customItemOption,
+];
+
+const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+const isSameLocalDate = (first: Date, second: Date) =>
+  first.getFullYear() === second.getFullYear() &&
+  first.getMonth() === second.getMonth() &&
+  first.getDate() === second.getDate();
+
+const formatPickupDeadline = (value: string) => {
+  if (!value) {
+    return "";
+  }
+
+  if (!datetimeLocalPattern.test(value)) {
+    return value;
+  }
+
+  const deadline = new Date(value);
+  if (Number.isNaN(deadline.getTime())) {
+    return value;
+  }
+
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(deadline);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  if (isSameLocalDate(deadline, today)) {
+    return `Today, ${timeLabel}`;
+  }
+
+  if (isSameLocalDate(deadline, tomorrow)) {
+    return `Tomorrow, ${timeLabel}`;
+  }
+
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(deadline);
+
+  return `${dateLabel}, ${timeLabel}`;
+};
+
 function App() {
   const [activeRole, setActiveRole] = useState<Role>("donor");
 
@@ -258,17 +315,20 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
     unlockStage("confirm");
   };
 
+  const handleDraftValueChange = (field: keyof BatchDraft, value: string) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+    if (status === "idle") {
+      setStatus("drafted");
+      unlockStage("review");
+    }
+  };
+
   const handleFieldChange =
     (field: keyof BatchDraft) =>
     (
       event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
     ) => {
-      const { value } = event.target;
-      setDraft((current) => ({ ...current, [field]: value }));
-      if (status === "idle") {
-        setStatus("drafted");
-        unlockStage("review");
-      }
+      handleDraftValueChange(field, event.target.value);
     };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -311,6 +371,7 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
             draft={draft}
             status={status}
             onFieldChange={handleFieldChange}
+            onValueChange={handleDraftValueChange}
             onSubmit={handleSubmit}
           />
         );
@@ -511,7 +572,7 @@ function ReviewStagePanel({
         ["Items", draft.itemDescription],
         ["Quantity", `${draft.quantity} ${draft.unit}`],
         ["Packaging", draft.packaging],
-        ["Pickup deadline", draft.pickupDeadline],
+        ["Pickup deadline", formatPickupDeadline(draft.pickupDeadline)],
       ]
     : [
         ["Category", "Needs confirmation"],
@@ -614,6 +675,7 @@ function ConfirmStagePanel({
   draft,
   status,
   onFieldChange,
+  onValueChange,
   onSubmit,
 }: {
   draft: BatchDraft;
@@ -623,6 +685,7 @@ function ConfirmStagePanel({
   ) => (
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => void;
+  onValueChange: (field: keyof BatchDraft, value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -647,14 +710,14 @@ function ConfirmStagePanel({
           value={draft.category}
           onChange={onFieldChange("category")}
         />
-        <Field
+        <SpecificItemsField
           id="itemDescription"
           label="Specific items"
           helper="Summarize visible items in the batch."
           value={draft.itemDescription}
-          onChange={onFieldChange("itemDescription")}
+          onValueChange={(value) => onValueChange("itemDescription", value)}
         />
-        <Field
+        <NumberField
           id="quantity"
           label="Quantity"
           helper="Editable estimate from the photo draft."
@@ -669,7 +732,7 @@ function ConfirmStagePanel({
           onChange={onFieldChange("unit")}
           options={["items", "kg", "trays", "boxes"]}
         />
-        <Field
+        <DateTimeField
           id="pickupDeadline"
           label="Pickup deadline"
           helper="Latest preferred collection time."
@@ -840,7 +903,10 @@ function IntakeReceipt({
         </div>
         <div>
           <dt>Pickup</dt>
-          <dd>{draft.pickupDeadline || "Awaiting confirmation"}</dd>
+          <dd>
+            {formatPickupDeadline(draft.pickupDeadline) ||
+              "Awaiting confirmation"}
+          </dd>
         </div>
       </dl>
       <div className="receipt-next">
@@ -868,6 +934,110 @@ function Field({
     <div className="field">
       <label htmlFor={id}>{label}</label>
       <input id={id} value={value} onChange={onChange} />
+      <small>{helper}</small>
+    </div>
+  );
+}
+
+function SpecificItemsField({
+  id,
+  label,
+  helper,
+  value,
+  onValueChange,
+}: {
+  id: string;
+  label: string;
+  helper: string;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const presetMatch = bakeryItemPresets.includes(value);
+  const selectedValue = presetMatch ? value : customItemOption;
+  const isCustom = selectedValue === customItemOption;
+  const helperId = `${id}-helper`;
+
+  return (
+    <div className="field specific-items-field">
+      <label htmlFor={id}>{label}</label>
+      <select
+        id={id}
+        value={selectedValue}
+        aria-describedby={helperId}
+        onChange={(event) =>
+          onValueChange(
+            event.target.value === customItemOption ? "" : event.target.value,
+          )
+        }
+      >
+        {bakeryItemPresets.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      {isCustom ? (
+        <input
+          className="custom-item-input"
+          value={presetMatch ? "" : value}
+          aria-label="Custom specific items"
+          aria-describedby={helperId}
+          placeholder="Enter custom items"
+          onChange={(event) => onValueChange(event.target.value)}
+        />
+      ) : null}
+      <small id={helperId}>{helper}</small>
+    </div>
+  );
+}
+
+function NumberField({
+  id,
+  label,
+  helper,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  helper: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="number"
+        min="1"
+        step="1"
+        inputMode="numeric"
+        value={value}
+        onChange={onChange}
+      />
+      <small>{helper}</small>
+    </div>
+  );
+}
+
+function DateTimeField({
+  id,
+  label,
+  helper,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  helper: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="field date-time-field">
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type="datetime-local" value={value} onChange={onChange} />
       <small>{helper}</small>
     </div>
   );
@@ -936,6 +1106,7 @@ function NgoPreview({
 }) {
   const pendingText =
     status === "submitted" ? "Pending match" : "Pending match preview";
+  const pickupLabel = formatPickupDeadline(draft.pickupDeadline);
 
   return (
     <section className="panel aside-panel" aria-labelledby="ngo-preview-title">
@@ -943,7 +1114,13 @@ function NgoPreview({
       <div className="incoming-batch">
         <span>{batchId}</span>
         <strong>{draft.category || "Bakery surplus draft"}</strong>
-        <p>{draft.quantity ? `${draft.quantity} ${draft.unit}` : "Awaiting donor confirmation"}</p>
+        <p>{draft.itemDescription || "Items awaiting donor confirmation"}</p>
+        <p>
+          {draft.quantity
+            ? `${draft.quantity} ${draft.unit}`
+            : "Awaiting donor confirmation"}
+        </p>
+        {pickupLabel ? <p>Pickup by {pickupLabel}</p> : null}
         <Badge tone={status === "submitted" ? "routing" : "review"}>{pendingText}</Badge>
       </div>
 

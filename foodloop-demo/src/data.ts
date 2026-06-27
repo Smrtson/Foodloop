@@ -6,6 +6,20 @@ import type {
   SensorEvidence,
 } from "./types";
 
+const toDatetimeLocalValue = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const todayAt = (hours: number, minutes: number) => {
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return toDatetimeLocalValue(date);
+};
+
 export const pageMeta: Array<{
   id: DemoPageId;
   label: string;
@@ -71,7 +85,7 @@ export const analyzedDraft: BatchDraft = {
   unit: "items",
   packaging: "Clamshell boxes and paper sleeves",
   preparedTime: "Today, 10:20 AM",
-  pickupDeadline: "Today, 2:45 PM",
+  pickupDeadline: todayAt(14, 45),
   storageLocation: "Front prep counter, Wan Chai",
   temperatureStatus: "Ambient, 24.1 C",
   holdingStatus: "Sealed packaging, no open handling observed",
