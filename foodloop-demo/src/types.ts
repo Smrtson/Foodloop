@@ -54,3 +54,88 @@ export interface SensorEvidence {
   sensorAttachment: string;
   lastReadingAt: string;
 }
+
+export type MatchFactorKey =
+  | "compatibility"
+  | "demand"
+  | "distance"
+  | "capacity"
+  | "urgencyFit";
+
+export interface MatchFactors {
+  compatibility: number;
+  demand: number;
+  distance: number;
+  capacity: number;
+  urgencyFit: number;
+}
+
+export interface NGOCandidate {
+  id: string;
+  name: string;
+  district: string;
+  distanceKm: number;
+  demandLabel: string;
+  capacityLabel: string;
+  serviceWindow: string;
+  score: number;
+  factors: MatchFactors;
+  reason: string;
+  progressStatus: string;
+}
+
+export interface MatchQueueBatch {
+  id: string;
+  title: string;
+  donorName: string;
+  donorLocation: string;
+  category: string;
+  itemDescription: string;
+  quantityLabel: string;
+  packaging: string;
+  preparedTime: string;
+  pickupDeadline: string;
+  storageEvidence: string;
+  handlingPriority: BatchDraft["handlingPriority"];
+  handlingNotes: string;
+  aiSummary: string;
+  ngoFitExplanation: string;
+  donorStatus: string;
+  routePreview: string;
+  selectedCandidateId: string;
+  candidates: NGOCandidate[];
+  recipientProgress: Array<{
+    label: string;
+    status: "done" | "active" | "waiting";
+  }>;
+}
+
+export type MatchAction = "accept" | "request-info" | "decline";
+
+export type MatchActionState =
+  | "idle"
+  | "accepted"
+  | "info-requested"
+  | "declined";
+
+export type AIModalAction = Extract<MatchAction, "request-info" | "decline">;
+
+export interface AIModalRequest {
+  action: AIModalAction;
+  role: Role;
+  batchId: string;
+  batchTitle: string;
+  candidateName: string;
+  handlingPriority: BatchDraft["handlingPriority"];
+  context: string[];
+}
+
+export interface AIModalResponse {
+  title: string;
+  intro: string;
+  message: string;
+  nextSteps: string[];
+  confidenceNote: string;
+  source: "openrouter" | "fallback";
+  model?: string;
+}

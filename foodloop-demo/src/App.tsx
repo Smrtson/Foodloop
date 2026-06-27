@@ -41,6 +41,7 @@ import {
   sensorEvidence,
   stubContent,
 } from "./data";
+import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
 import type { BatchDraft, DemoPageId, IntakeStatus, Role } from "./types";
 
 type IntakeStage = "capture" | "review" | "confirm";
@@ -159,7 +160,7 @@ function App() {
         <Route path="/intake" element={<DonorIntakePage activeRole={activeRole} />} />
         <Route
           path="/matching"
-          element={<StubPage pageId="matching" activeRole={activeRole} />}
+          element={<NGOMatchQueuePage activeRole={activeRole} />}
         />
         <Route
           path="/route"

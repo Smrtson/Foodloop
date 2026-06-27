@@ -1,8 +1,11 @@
 import type {
   AgentRecommendation,
+  AIModalAction,
+  AIModalResponse,
   BatchDraft,
   DemoPageId,
   ForecastSummary,
+  MatchQueueBatch,
   SensorEvidence,
 } from "./types";
 
@@ -36,7 +39,7 @@ export const pageMeta: Array<{
     id: "matching",
     label: "NGO Match Queue",
     path: "/matching",
-    status: "Develop later",
+    status: "Ready for walkthrough",
   },
   {
     id: "route",
@@ -144,6 +147,317 @@ export const ngoPreviewRows = [
     capacity: "Needs confirmation",
   },
 ];
+
+export const matchQueueBatches: MatchQueueBatch[] = [
+  {
+    id: "FL-WC-0625-014",
+    title: "Bakery surplus",
+    donorName: "Sunrise Bakery",
+    donorLocation: "Queen's Road East, Wan Chai",
+    category: "Bakery surplus",
+    itemDescription: "Assorted buns, rolls, croissants",
+    quantityLabel: "118 items",
+    packaging: "Clamshell boxes and paper sleeves",
+    preparedTime: "Today, 10:20 AM",
+    pickupDeadline: "Today, 2:45 PM",
+    storageEvidence: "Front prep counter, sealed and ready for pickup",
+    handlingPriority: "Low handling risk",
+    handlingNotes:
+      "Packaging is closed and the pickup window leaves time for nearby distribution.",
+    aiSummary:
+      "FoodLoop found strong bakery demand near Wan Chai and ranked NGOs with confirmed snack capacity today.",
+    ngoFitExplanation:
+      "This batch reached the NGO queue because bakery items match pantry demand, distance is short, and capacity is already open.",
+    donorStatus:
+      "Submitted for matching. FoodLoop is ranking recipient fit and capacity.",
+    routePreview: "Likely pickup route from Wan Chai to Central in 14-18 minutes.",
+    selectedCandidateId: "harbour-care-kitchen",
+    candidates: [
+      {
+        id: "harbour-care-kitchen",
+        name: "Harbour Care Kitchen",
+        district: "Central and Sheung Wan",
+        distanceKm: 1.4,
+        demandLabel: "High snack demand",
+        capacityLabel: "120 item capacity today",
+        serviceWindow: "12:30 PM to 3:30 PM",
+        score: 92,
+        factors: {
+          compatibility: 96,
+          demand: 91,
+          distance: 94,
+          capacity: 88,
+          urgencyFit: 86,
+        },
+        reason:
+          "Accepts bakery items, has a lunch pantry run today, and can collect before the donor deadline.",
+        progressStatus: "Top recommendation",
+      },
+      {
+        id: "wan-chai-community-pantry",
+        name: "Wan Chai Community Pantry",
+        district: "Wan Chai",
+        distanceKm: 2.1,
+        demandLabel: "Steady demand",
+        capacityLabel: "90 item capacity",
+        serviceWindow: "1:00 PM to 4:00 PM",
+        score: 86,
+        factors: {
+          compatibility: 93,
+          demand: 83,
+          distance: 88,
+          capacity: 78,
+          urgencyFit: 84,
+        },
+        reason:
+          "Strong food fit and nearby collection, but lower remaining capacity than the top recipient.",
+        progressStatus: "Available backup",
+      },
+      {
+        id: "north-point-meal-circle",
+        name: "North Point Meal Circle",
+        district: "North Point",
+        distanceKm: 3.2,
+        demandLabel: "Moderate demand",
+        capacityLabel: "140 item capacity",
+        serviceWindow: "2:00 PM to 5:00 PM",
+        score: 79,
+        factors: {
+          compatibility: 89,
+          demand: 74,
+          distance: 72,
+          capacity: 91,
+          urgencyFit: 70,
+        },
+        reason:
+          "Capacity is strong, but travel time makes the pickup less efficient for this batch.",
+        progressStatus: "Reroute option",
+      },
+    ],
+    recipientProgress: [
+      { label: "Submitted", status: "done" },
+      { label: "Ranked", status: "active" },
+      { label: "Recipient review", status: "waiting" },
+      { label: "Route pending", status: "waiting" },
+    ],
+  },
+  {
+    id: "FL-CT-0625-022",
+    title: "Chilled sandwiches",
+    donorName: "Cedar Table Cafe",
+    donorLocation: "Hennessy Road, Causeway Bay",
+    category: "Chilled ready-to-eat",
+    itemDescription: "Wrapped egg, tuna, and salad sandwiches",
+    quantityLabel: "64 packs",
+    packaging: "Individually wrapped and labelled",
+    preparedTime: "Today, 8:45 AM",
+    pickupDeadline: "Today, 1:20 PM",
+    storageEvidence: "Chilled cabinet, 4.7 C, staff confirms sealed packs",
+    handlingPriority: "Short window",
+    handlingNotes:
+      "Pickup should be accepted by an NGO with cold-bag capacity and a nearby route.",
+    aiSummary:
+      "FoodLoop prioritised cold-chain capacity, short travel time, and immediate meal demand.",
+    ngoFitExplanation:
+      "This batch reached the queue because the NGO has chilled transport capacity and a meal service starting soon.",
+    donorStatus:
+      "Submitted with a short pickup window. FoodLoop is checking chilled capacity before acceptance.",
+    routePreview: "Likely pickup route from Causeway Bay to Tin Hau in 10-14 minutes.",
+    selectedCandidateId: "tin-hau-supper-room",
+    candidates: [
+      {
+        id: "tin-hau-supper-room",
+        name: "Tin Hau Supper Room",
+        district: "Tin Hau",
+        distanceKm: 1.1,
+        demandLabel: "Immediate lunch demand",
+        capacityLabel: "Cold bags for 70 packs",
+        serviceWindow: "12:00 PM to 2:00 PM",
+        score: 89,
+        factors: {
+          compatibility: 91,
+          demand: 94,
+          distance: 96,
+          capacity: 86,
+          urgencyFit: 91,
+        },
+        reason:
+          "Closest chilled-capable recipient with meal service inside the donor pickup window.",
+        progressStatus: "Top recommendation",
+      },
+      {
+        id: "causeway-neighbour-table",
+        name: "Causeway Neighbour Table",
+        district: "Causeway Bay",
+        distanceKm: 0.8,
+        demandLabel: "Medium demand",
+        capacityLabel: "Cold bags for 42 packs",
+        serviceWindow: "12:30 PM to 3:00 PM",
+        score: 82,
+        factors: {
+          compatibility: 87,
+          demand: 78,
+          distance: 98,
+          capacity: 64,
+          urgencyFit: 88,
+        },
+        reason:
+          "Very close, but current cold capacity is below the full batch quantity.",
+        progressStatus: "Partial capacity",
+      },
+      {
+        id: "eastern-harbour-lunch-club",
+        name: "Eastern Harbour Lunch Club",
+        district: "Quarry Bay",
+        distanceKm: 4.6,
+        demandLabel: "High demand",
+        capacityLabel: "Cold bags for 100 packs",
+        serviceWindow: "1:30 PM to 4:00 PM",
+        score: 75,
+        factors: {
+          compatibility: 92,
+          demand: 90,
+          distance: 58,
+          capacity: 94,
+          urgencyFit: 62,
+        },
+        reason:
+          "Demand and capacity are strong, but route timing is weaker for the pickup deadline.",
+        progressStatus: "Later reroute",
+      },
+    ],
+    recipientProgress: [
+      { label: "Submitted", status: "done" },
+      { label: "Cold capacity check", status: "active" },
+      { label: "Recipient review", status: "waiting" },
+      { label: "Route pending", status: "waiting" },
+    ],
+  },
+  {
+    id: "FL-TK-0625-031",
+    title: "Fruit boxes",
+    donorName: "Tai Kok Tsui Market Stall 18",
+    donorLocation: "Fuk Tsun Street, Tai Kok Tsui",
+    category: "Fresh produce",
+    itemDescription: "Mixed apple, orange, and pear boxes",
+    quantityLabel: "36 boxes",
+    packaging: "Stacked cardboard fruit boxes",
+    preparedTime: "Today, 9:30 AM",
+    pickupDeadline: "Today, 5:30 PM",
+    storageEvidence: "Covered stall area, donor notes mixed ripeness",
+    handlingPriority: "Needs confirmation",
+    handlingNotes:
+      "Confirm box count, visible bruising, and whether partial acceptance is preferred.",
+    aiSummary:
+      "FoodLoop found produce demand, but the recipient should confirm quality notes before accepting.",
+    ngoFitExplanation:
+      "This batch reached the queue because the NGO can sort produce and has afternoon volunteer capacity.",
+    donorStatus:
+      "Submitted for matching. FoodLoop is requesting confirmation details before final recipient acceptance.",
+    routePreview: "Likely pickup route from Tai Kok Tsui to Sham Shui Po in 12-16 minutes.",
+    selectedCandidateId: "sham-shui-po-fresh-box",
+    candidates: [
+      {
+        id: "sham-shui-po-fresh-box",
+        name: "Sham Shui Po Fresh Box",
+        district: "Sham Shui Po",
+        distanceKm: 1.7,
+        demandLabel: "High produce demand",
+        capacityLabel: "Volunteer sorting team ready",
+        serviceWindow: "2:00 PM to 6:00 PM",
+        score: 84,
+        factors: {
+          compatibility: 90,
+          demand: 92,
+          distance: 89,
+          capacity: 86,
+          urgencyFit: 73,
+        },
+        reason:
+          "Nearby produce program with volunteers available to inspect and sort mixed boxes.",
+        progressStatus: "Top recommendation",
+      },
+      {
+        id: "olympic-neighbour-kitchen",
+        name: "Olympic Neighbour Kitchen",
+        district: "Olympic",
+        distanceKm: 1.2,
+        demandLabel: "Medium produce demand",
+        capacityLabel: "18 box capacity",
+        serviceWindow: "3:00 PM to 5:00 PM",
+        score: 77,
+        factors: {
+          compatibility: 82,
+          demand: 76,
+          distance: 94,
+          capacity: 58,
+          urgencyFit: 76,
+        },
+        reason:
+          "Very close, but capacity would require splitting the batch with another recipient.",
+        progressStatus: "Partial capacity",
+      },
+      {
+        id: "kowloon-west-share-table",
+        name: "Kowloon West Share Table",
+        district: "Jordan",
+        distanceKm: 3.8,
+        demandLabel: "Steady demand",
+        capacityLabel: "40 box capacity",
+        serviceWindow: "1:30 PM to 5:30 PM",
+        score: 73,
+        factors: {
+          compatibility: 79,
+          demand: 72,
+          distance: 65,
+          capacity: 88,
+          urgencyFit: 74,
+        },
+        reason:
+          "Can take the full quantity, but produce fit and travel distance are weaker.",
+        progressStatus: "Available backup",
+      },
+    ],
+    recipientProgress: [
+      { label: "Submitted", status: "done" },
+      { label: "Confirmation needed", status: "active" },
+      { label: "Recipient review", status: "waiting" },
+      { label: "Route pending", status: "waiting" },
+    ],
+  },
+];
+
+export const fallbackAIModalCopy: Record<
+  AIModalAction,
+  Omit<AIModalResponse, "source" | "model">
+> = {
+  "request-info": {
+    title: "Information request draft",
+    intro: "Fallback demo copy generated without a live AI response.",
+    message:
+      "Please confirm the final count, pickup contact, holding location, and any packaging notes before the recipient accepts this batch.",
+    nextSteps: [
+      "Send the request to the donor contact.",
+      "Keep the recipient place in queue while waiting.",
+      "Refresh the match recommendation after the donor replies.",
+    ],
+    confidenceNote:
+      "This text is canned for the local demo. Add OPENROUTER_API_KEY for live generated wording.",
+  },
+  decline: {
+    title: "Decline and reroute note",
+    intro: "Fallback demo copy generated without a live AI response.",
+    message:
+      "Thank you for reviewing this opportunity. We cannot accept the current batch window, so FoodLoop should offer it to the next matched recipient.",
+    nextSteps: [
+      "Record the decline reason for matching transparency.",
+      "Keep the batch visible to backup recipients.",
+      "Notify the donor only after a new recipient is selected.",
+    ],
+    confidenceNote:
+      "This text is canned for the local demo. Add OPENROUTER_API_KEY for live generated wording.",
+  },
+};
 
 export const stubContent: Record<
   Exclude<DemoPageId, "intake">,
