@@ -7,7 +7,7 @@ export type DemoPageId =
   | "impact"
   | "architecture";
 
-export type IntakeStatus = "idle" | "drafted" | "submitted";
+export type IntakeStatus = "idle" | "analyzing" | "drafted" | "submitted";
 
 export interface BatchDraft {
   donorName: string;

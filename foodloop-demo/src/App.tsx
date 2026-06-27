@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   ArrowRight,
   Bot,
   Building2,
@@ -19,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import {
   Link,
@@ -28,6 +29,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import bakeryPhoto from "./assets/wan-chai-bakery-surplus.png";
 import {
@@ -35,14 +37,13 @@ import {
   analyzedDraft,
   emptyDraft,
   forecastSummary,
-  ngoPreviewRows,
   pageMeta,
   sensorEvidence,
   stubContent,
 } from "./data";
 import type { BatchDraft, DemoPageId, IntakeStatus, Role } from "./types";
 
-type IntakeStage = "capture" | "review" | "confirm" | "match";
+type IntakeStage = "capture" | "review" | "confirm";
 
 const pageIcons: Record<DemoPageId, LucideIcon> = {
   intake: ClipboardCheck,
@@ -67,25 +68,29 @@ const intakeStages: Array<{
   {
     id: "review",
     label: "Review",
-    description: "AI draft and evidence",
+    description: "Editable AI draft",
     icon: Bot,
   },
   {
     id: "confirm",
     label: "Confirm",
-    description: "Editable donor record",
+    description: "Locked final check",
     icon: FileText,
-  },
-  {
-    id: "match",
-    label: "Match",
-    description: "NGO preview after submit",
-    icon: Users,
   },
 ];
 
 const getIntakeStageIndex = (stage: IntakeStage) =>
   intakeStages.findIndex((item) => item.id === stage);
+
+const analysisDurationMs = 5000;
+
+const analysisPhrases = [
+  "FoodLoop is identifying food",
+  "FoodLoop is estimating quantity",
+  "FoodLoop is checking packaging",
+  "FoodLoop is organising data",
+  "FoodLoop is preparing your review draft",
+];
 
 const customItemOption = "Other / custom";
 
@@ -286,14 +291,18 @@ function TopBar({
 }
 
 function DonorIntakePage({ activeRole }: { activeRole: Role }) {
+  const navigate = useNavigate();
   const [draft, setDraft] = useState<BatchDraft>(emptyDraft);
   const [status, setStatus] = useState<IntakeStatus>("idle");
   const [lastAnalyzed, setLastAnalyzed] = useState<string>("");
   const [activeStage, setActiveStage] = useState<IntakeStage>("capture");
   const [highestStageIndex, setHighestStageIndex] = useState(0);
+  const [analysisPhraseIndex, setAnalysisPhraseIndex] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const batchId = "FL-WC-0625-014";
 
-  const isDrafted = status !== "idle";
+  const isAnalyzing = status === "analyzing";
+  const isDrafted = status === "drafted" || status === "submitted";
   const isSubmitted = status === "submitted";
 
   const unlockStage = (stage: IntakeStage) => {
@@ -302,12 +311,56 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
     );
   };
 
+  useEffect(() => {
+    if (status !== "analyzing") {
+      return undefined;
+    }
+
+    const startedAt = window.performance.now();
+    const intervalId = window.setInterval(() => {
+      const elapsed = window.performance.now() - startedAt;
+      const nextProgress = Math.min(100, (elapsed / analysisDurationMs) * 100);
+      const nextPhraseIndex = Math.min(
+        analysisPhrases.length - 1,
+        Math.floor((elapsed / analysisDurationMs) * analysisPhrases.length),
+      );
+
+      setAnalysisProgress(nextProgress);
+      setAnalysisPhraseIndex(nextPhraseIndex);
+    }, 100);
+
+    const timeoutId = window.setTimeout(() => {
+      window.clearInterval(intervalId);
+      setDraft(analyzedDraft);
+      setStatus("drafted");
+      setLastAnalyzed(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(new Date()),
+      );
+      setAnalysisProgress(100);
+      setAnalysisPhraseIndex(analysisPhrases.length - 1);
+      setActiveStage("review");
+      setHighestStageIndex((current) =>
+        Math.max(current, getIntakeStageIndex("review")),
+      );
+    }, analysisDurationMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [status]);
+
   const handleAnalyze = () => {
-    setDraft(analyzedDraft);
-    setStatus("drafted");
-    setLastAnalyzed("10:24 AM");
-    setActiveStage("review");
-    unlockStage("review");
+    setDraft({ ...emptyDraft });
+    setStatus("analyzing");
+    setLastAnalyzed("");
+    setAnalysisPhraseIndex(0);
+    setAnalysisProgress(0);
+    setActiveStage("capture");
+    setHighestStageIndex(getIntakeStageIndex("capture"));
   };
 
   const handleContinueToConfirm = () => {
@@ -317,7 +370,7 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
 
   const handleDraftValueChange = (field: keyof BatchDraft, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
-    if (status === "idle") {
+    if (status === "idle" || status === "analyzing") {
       setStatus("drafted");
       unlockStage("review");
     }
@@ -331,18 +384,20 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
       handleDraftValueChange(field, event.target.value);
     };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleReturnToEdit = () => {
+    setActiveStage("review");
+  };
+
+  const handleSubmit = () => {
     if (!draft.category) {
       setDraft(analyzedDraft);
     }
     setStatus("submitted");
-    setActiveStage("match");
-    unlockStage("match");
+    navigate("/matching");
   };
 
   const handleStageSelect = (stage: IntakeStage) => {
-    if (getIntakeStageIndex(stage) <= highestStageIndex) {
+    if (!isAnalyzing && getIntakeStageIndex(stage) <= highestStageIndex) {
       setActiveStage(stage);
     }
   };
@@ -353,7 +408,11 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
         return (
           <CaptureStagePanel
             isDrafted={isDrafted}
+            isAnalyzing={isAnalyzing}
             lastAnalyzed={lastAnalyzed}
+            analysisPhrase={analysisPhrases[analysisPhraseIndex]}
+            analysisPhraseIndex={analysisPhraseIndex}
+            analysisProgress={analysisProgress}
             onAnalyze={handleAnalyze}
           />
         );
@@ -362,6 +421,8 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
           <ReviewStagePanel
             draft={draft}
             isDrafted={isDrafted}
+            onFieldChange={handleFieldChange}
+            onValueChange={handleDraftValueChange}
             onContinue={handleContinueToConfirm}
           />
         );
@@ -370,13 +431,10 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
           <ConfirmStagePanel
             draft={draft}
             status={status}
-            onFieldChange={handleFieldChange}
-            onValueChange={handleDraftValueChange}
+            onReturnToEdit={handleReturnToEdit}
             onSubmit={handleSubmit}
           />
         );
-      case "match":
-        return <MatchStagePanel status={status} batchId={batchId} draft={draft} />;
       default:
         return null;
     }
@@ -404,6 +462,7 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
         <IntakeProgressRail
           activeStage={activeStage}
           highestStageIndex={highestStageIndex}
+          isLocked={isAnalyzing}
           onStageSelect={handleStageSelect}
         />
 
@@ -426,10 +485,12 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
 function IntakeProgressRail({
   activeStage,
   highestStageIndex,
+  isLocked,
   onStageSelect,
 }: {
   activeStage: IntakeStage;
   highestStageIndex: number;
+  isLocked: boolean;
   onStageSelect: (stage: IntakeStage) => void;
 }) {
   return (
@@ -438,14 +499,19 @@ function IntakeProgressRail({
         const Icon = stage.icon;
         const isActive = activeStage === stage.id;
         const isComplete = index < highestStageIndex;
-        const isAvailable = index <= highestStageIndex;
-        const stateText = isActive
-          ? "Current"
-          : isComplete
-            ? "Complete"
-            : isAvailable
-              ? "Available"
-              : "Locked";
+        const isAvailable = !isLocked && index <= highestStageIndex;
+        const stateText =
+          isLocked && isActive
+            ? "Analyzing"
+            : isLocked
+              ? "Locked"
+              : isActive
+                ? "Current"
+                : isComplete
+                  ? "Complete"
+                  : isAvailable
+                    ? "Available"
+                    : "Locked";
 
         return (
           <button
@@ -479,27 +545,21 @@ function IntakeProgressRail({
   );
 }
 
-function SubmittedBanner({ batchId }: { batchId: string }) {
-  return (
-    <div className="submit-banner" role="status">
-      <div className="banner-icon" aria-hidden="true">
-        <Check size={18} />
-      </div>
-      <div>
-        <strong>Batch {batchId} submitted for matching.</strong>
-        <span> Pending match status is visible to NGO partners.</span>
-      </div>
-    </div>
-  );
-}
-
 function CaptureStagePanel({
   isDrafted,
+  isAnalyzing,
   lastAnalyzed,
+  analysisPhrase,
+  analysisPhraseIndex,
+  analysisProgress,
   onAnalyze,
 }: {
   isDrafted: boolean;
+  isAnalyzing: boolean;
   lastAnalyzed: string;
+  analysisPhrase: string;
+  analysisPhraseIndex: number;
+  analysisProgress: number;
   onAnalyze: () => void;
 }) {
   return (
@@ -508,15 +568,35 @@ function CaptureStagePanel({
         id="photo-panel-title"
         icon={UploadCloud}
         title="Capture surplus photo"
-        actionText={isDrafted ? `Analyzed ${lastAnalyzed}` : "Start here"}
+        actionText={
+          isAnalyzing
+            ? "Analyzing photo"
+            : isDrafted
+              ? `Analyzed ${lastAnalyzed}`
+              : "Start here"
+        }
       />
       <div className="capture-grid">
         <div>
-          <div className="photo-frame capture-photo">
+          <div
+            className={[
+              "photo-frame",
+              "capture-photo",
+              isAnalyzing ? "analysis-photo-frame" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
             <img
               src={bakeryPhoto}
               alt="Sealed bakery surplus in green crates at a Wan Chai bakery counter"
             />
+            {isAnalyzing ? (
+              <div className="scanner-overlay" aria-hidden="true">
+                <span className="scanner-grid" />
+                <span className="scanner-line" />
+              </div>
+            ) : null}
           </div>
           <div className="photo-meta">
             <span>Wan Chai bakery photo</span>
@@ -525,11 +605,21 @@ function CaptureStagePanel({
         </div>
 
         <div className="capture-copy">
-          <h3>Photo intake for Sunrise Bakery</h3>
-          <p>
-            Use the supplied photo to draft category, items, quantity, and pickup
-            timing.
-          </p>
+          {isAnalyzing ? (
+            <AnalysisLoadingPanel
+              phrase={analysisPhrase}
+              phraseIndex={analysisPhraseIndex}
+              progress={analysisProgress}
+            />
+          ) : (
+            <>
+              <h3>Photo intake for Sunrise Bakery</h3>
+              <p>
+                Use the supplied photo to draft category, items, quantity, and
+                pickup timing.
+              </p>
+            </>
+          )}
           <dl className="context-list">
             <div>
               <dt>Donor</dt>
@@ -544,12 +634,17 @@ function CaptureStagePanel({
               <dd>{emptyDraft.holdingStatus}</dd>
             </div>
           </dl>
-          <button type="button" className="button button-primary button-workflow" onClick={onAnalyze}>
+          <button
+            type="button"
+            className="button button-primary button-workflow"
+            disabled={isAnalyzing}
+            onClick={onAnalyze}
+          >
             <Sparkles size={17} aria-hidden="true" />
-            Analyze Photo
+            {isAnalyzing ? "Analyzing Photo" : "Analyze Photo"}
           </button>
           <p className="helper-copy">
-            AI creates a draft only. Donor confirmation controls matching.
+            FoodLoop prepares a draft for donor review before matching begins.
           </p>
         </div>
       </div>
@@ -557,50 +652,96 @@ function CaptureStagePanel({
   );
 }
 
+function AnalysisLoadingPanel({
+  phrase,
+  phraseIndex,
+  progress,
+}: {
+  phrase: string;
+  phraseIndex: number;
+  progress: number;
+}) {
+  const visibleProgress = Math.max(4, progress);
+
+  return (
+    <div className="analysis-card" role="status" aria-live="polite">
+      <div className="analysis-card-heading">
+        <span className="analysis-icon" aria-hidden="true">
+          <Bot size={18} />
+        </span>
+        <div>
+          <h3>Preparing review draft</h3>
+          <p>{phrase}</p>
+        </div>
+      </div>
+
+      <div className="analysis-progress" aria-label={`${Math.round(progress)}% complete`}>
+        <span style={{ width: `${visibleProgress}%` }} />
+      </div>
+
+      <div className="analysis-steps" aria-label="Analysis progress steps">
+        {analysisPhrases.map((step, index) => (
+          <span
+            key={step}
+            className={index <= phraseIndex ? "analysis-step-active" : ""}
+            aria-label={step}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ReviewStagePanel({
   isDrafted,
   draft,
+  onFieldChange,
+  onValueChange,
   onContinue,
 }: {
   isDrafted: boolean;
   draft: BatchDraft;
+  onFieldChange: (
+    field: keyof BatchDraft,
+  ) => (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => void;
+  onValueChange: (field: keyof BatchDraft, value: string) => void;
   onContinue: () => void;
 }) {
-  const rows = isDrafted
-    ? [
-        ["Category", draft.category],
-        ["Items", draft.itemDescription],
-        ["Quantity", `${draft.quantity} ${draft.unit}`],
-        ["Packaging", draft.packaging],
-        ["Pickup deadline", formatPickupDeadline(draft.pickupDeadline)],
-      ]
-    : [
-        ["Category", "Needs confirmation"],
-        ["Items", "Needs confirmation"],
-        ["Quantity", "Needs confirmation"],
-        ["Packaging", "Needs confirmation"],
-        ["Pickup deadline", "Needs confirmation"],
-      ];
+  const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onContinue();
+  };
 
   return (
-    <section className="panel stage-panel review-stage" aria-labelledby="agent-panel-title">
-      <PanelTitle
-        id="agent-panel-title"
-        icon={Bot}
-        title="Review AI intake draft"
-        actionText={isDrafted ? `${agentRecommendation.confidence}% confidence` : "Awaiting photo"}
-      />
-      <div className="agent-copy">
-        <p>{isDrafted ? agentRecommendation.summary : "Analyze the photo to fill the editable donor draft."}</p>
+    <form
+      className="panel stage-panel batch-form review-stage"
+      aria-labelledby="review-form-title"
+      onSubmit={handleReviewSubmit}
+    >
+      <div className="form-header">
+        <PanelTitle
+          id="review-form-title"
+          icon={Bot}
+          title="Edit AI intake draft"
+          actionText={
+            isDrafted
+              ? `${agentRecommendation.confidence}% draft confidence`
+              : "Awaiting photo"
+          }
+        />
+        <Badge tone="review">Editable review</Badge>
       </div>
-      <dl className="agent-table">
-        {rows.map(([label, value]) => (
-          <div key={label} className="agent-row">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
+
+      <div className="agent-copy">
+        <p>
+          {isDrafted
+            ? agentRecommendation.summary
+            : "Analyze the photo to prepare a donor-editable review draft."}
+        </p>
+      </div>
+
       <div className="evidence-chip-grid" aria-label="Forecast and evidence">
         <EvidenceChip
           icon={CalendarClock}
@@ -632,74 +773,6 @@ function ReviewStagePanel({
           {isDrafted ? draft.handlingPriority : "Needs confirmation"}
         </Badge>
         <span>{agentRecommendation.requiredConfirmation}</span>
-      </div>
-      <div className="stage-actions">
-        <button
-          type="button"
-          className="button button-primary button-workflow"
-          disabled={!isDrafted}
-          onClick={onContinue}
-        >
-          <ArrowRight size={17} aria-hidden="true" />
-          Continue to Confirm
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function EvidenceChip({
-  icon: Icon,
-  label,
-  value,
-  supporting,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  supporting: string;
-}) {
-  return (
-    <div className="evidence-chip">
-      <Icon size={17} aria-hidden="true" />
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{supporting}</small>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmStagePanel({
-  draft,
-  status,
-  onFieldChange,
-  onValueChange,
-  onSubmit,
-}: {
-  draft: BatchDraft;
-  status: IntakeStatus;
-  onFieldChange: (
-    field: keyof BatchDraft,
-  ) => (
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
-  ) => void;
-  onValueChange: (field: keyof BatchDraft, value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <form className="panel stage-panel batch-form" aria-labelledby="batch-form-title" onSubmit={onSubmit}>
-      <div className="form-header">
-        <PanelTitle
-          id="batch-form-title"
-          icon={FileText}
-          title="Confirm batch details"
-          actionText="Donor confirms"
-        />
-        <Badge tone={status === "submitted" ? "routing" : "review"}>
-          {status === "submitted" ? "Pending match" : "Needs confirmation"}
-        </Badge>
       </div>
 
       <div className="form-grid">
@@ -797,43 +870,168 @@ function ConfirmStagePanel({
         </div>
       </details>
 
-      <div className="form-footer">
-        <label className="confirm-row">
-          <input type="checkbox" defaultChecked required />
-          <span>I confirm this donor record is ready for matching.</span>
-        </label>
-        <button type="submit" className="button button-primary button-workflow">
-          <Send size={17} aria-hidden="true" />
-          Submit for Matching
+      <div className="form-footer review-form-footer">
+        <p>Adjust any draft fields before the final locked checkpoint.</p>
+        <button
+          type="submit"
+          className="button button-primary button-workflow"
+          disabled={!isDrafted}
+        >
+          <ArrowRight size={17} aria-hidden="true" />
+          Continue to Confirm
         </button>
       </div>
     </form>
   );
 }
 
-function MatchStagePanel({
-  status,
-  batchId,
-  draft,
+function EvidenceChip({
+  icon: Icon,
+  label,
+  value,
+  supporting,
 }: {
-  status: IntakeStatus;
-  batchId: string;
-  draft: BatchDraft;
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  supporting: string;
 }) {
   return (
-    <section className="stage-match-stack" aria-labelledby="match-stage-title">
-      <h2 id="match-stage-title" className="sr-only">
-        Match submitted batch
-      </h2>
-      <SubmittedBanner batchId={batchId} />
-      <NgoPreview status={status} batchId={batchId} draft={draft} />
-      <div className="stage-actions">
-        <Link to="/matching" className="button button-primary button-workflow">
-          Open Match Queue
-          <ArrowRight size={17} aria-hidden="true" />
-        </Link>
+    <div className="evidence-chip">
+      <Icon size={17} aria-hidden="true" />
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{supporting}</small>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmStagePanel({
+  draft,
+  status,
+  onReturnToEdit,
+  onSubmit,
+}: {
+  draft: BatchDraft;
+  status: IntakeStatus;
+  onReturnToEdit: () => void;
+  onSubmit: () => void;
+}) {
+  const quantityLabel = draft.quantity
+    ? `${draft.quantity} ${draft.unit}`
+    : "Not provided";
+
+  return (
+    <section
+      className="panel stage-panel confirm-summary"
+      aria-labelledby="confirm-summary-title"
+    >
+      <div className="form-header">
+        <PanelTitle
+          id="confirm-summary-title"
+          icon={FileText}
+          title="Confirm locked batch"
+          actionText="Final checkpoint"
+        />
+        <Badge tone={status === "submitted" ? "routing" : "review"}>
+          {status === "submitted" ? "Pending match" : "Ready to submit"}
+        </Badge>
+      </div>
+
+      <div className="locked-note">
+        <Check size={17} aria-hidden="true" />
+        <p>Final donor record locked for the matching handoff.</p>
+      </div>
+
+      <section className="summary-section" aria-labelledby="core-summary-title">
+        <h3 id="core-summary-title">Core details</h3>
+        <dl className="summary-grid">
+          <ReadOnlySummaryItem label="Donor" value={draft.donorName} />
+          <ReadOnlySummaryItem label="Location" value={draft.location} />
+          <ReadOnlySummaryItem label="Food category" value={draft.category} />
+          <ReadOnlySummaryItem
+            label="Specific items"
+            value={draft.itemDescription}
+          />
+          <ReadOnlySummaryItem label="Quantity" value={quantityLabel} />
+          <ReadOnlySummaryItem
+            label="Pickup deadline"
+            value={formatPickupDeadline(draft.pickupDeadline)}
+          />
+          <ReadOnlySummaryItem
+            label="Storage location"
+            value={draft.storageLocation}
+          />
+          <ReadOnlySummaryItem
+            label="Donor notes for NGOs"
+            value={draft.donorNotes}
+            wide
+          />
+        </dl>
+      </section>
+
+      <section
+        className="summary-section"
+        aria-labelledby="operations-summary-title"
+      >
+        <h3 id="operations-summary-title">Operational details</h3>
+        <dl className="summary-grid">
+          <ReadOnlySummaryItem label="Packaging" value={draft.packaging} />
+          <ReadOnlySummaryItem label="Prepared time" value={draft.preparedTime} />
+          <ReadOnlySummaryItem
+            label="Temperature and holding"
+            value={draft.temperatureStatus}
+          />
+          <ReadOnlySummaryItem
+            label="Sensor attachment"
+            value={draft.sensorAttachment}
+          />
+          <ReadOnlySummaryItem
+            label="Handling priority"
+            value={draft.handlingPriority}
+            wide
+          />
+        </dl>
+      </section>
+
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={onReturnToEdit}
+        >
+          <ArrowLeft size={17} aria-hidden="true" />
+          Return to Edit
+        </button>
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={onSubmit}
+        >
+          <Send size={17} aria-hidden="true" />
+          Confirm & Submit
+        </button>
       </div>
     </section>
+  );
+}
+
+function ReadOnlySummaryItem({
+  label,
+  value,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) {
+  return (
+    <div className={wide ? "summary-item summary-item-wide" : "summary-item"}>
+      <dt>{label}</dt>
+      <dd>{value || "Not provided"}</dd>
+    </div>
   );
 }
 
@@ -857,17 +1055,19 @@ function IntakeReceipt({
   const statusLabel =
     status === "submitted"
       ? "Submitted"
+      : status === "analyzing"
+        ? "Analyzing photo"
       : status === "drafted"
         ? "Draft ready"
         : "Awaiting photo";
   const nextAction =
     activeStage === "capture"
-      ? "Analyze the photo"
+      ? status === "analyzing"
+        ? "Preparing review draft"
+        : "Analyze the photo"
       : activeStage === "review"
         ? "Continue to Confirm"
-        : activeStage === "confirm"
-          ? "Submit for Matching"
-          : "Open Match Queue";
+        : "Confirm & Submit";
 
   return (
     <aside className="panel intake-receipt" aria-label="Intake receipt">
@@ -878,7 +1078,13 @@ function IntakeReceipt({
       />
       <div className="receipt-status">
         <Badge tone={isSubmitted ? "routing" : "review"}>{statusLabel}</Badge>
-        {lastAnalyzed ? <span>Analyzed {lastAnalyzed}</span> : <span>Not analyzed</span>}
+        {status === "analyzing" ? (
+          <span>Analyzing now</span>
+        ) : lastAnalyzed ? (
+          <span>Analyzed {lastAnalyzed}</span>
+        ) : (
+          <span>Not analyzed</span>
+        )}
       </div>
       <dl className="receipt-list">
         <div>
@@ -1092,53 +1298,6 @@ function TextAreaField({
       <textarea id={id} rows={3} value={value} onChange={onChange} />
       <small>{helper}</small>
     </div>
-  );
-}
-
-function NgoPreview({
-  status,
-  batchId,
-  draft,
-}: {
-  status: IntakeStatus;
-  batchId: string;
-  draft: BatchDraft;
-}) {
-  const pendingText =
-    status === "submitted" ? "Pending match" : "Pending match preview";
-  const pickupLabel = formatPickupDeadline(draft.pickupDeadline);
-
-  return (
-    <section className="panel aside-panel" aria-labelledby="ngo-preview-title">
-      <PanelTitle id="ngo-preview-title" icon={Users} title="NGO preview" actionText={pendingText} />
-      <div className="incoming-batch">
-        <span>{batchId}</span>
-        <strong>{draft.category || "Bakery surplus draft"}</strong>
-        <p>{draft.itemDescription || "Items awaiting donor confirmation"}</p>
-        <p>
-          {draft.quantity
-            ? `${draft.quantity} ${draft.unit}`
-            : "Awaiting donor confirmation"}
-        </p>
-        {pickupLabel ? <p>Pickup by {pickupLabel}</p> : null}
-        <Badge tone={status === "submitted" ? "routing" : "review"}>{pendingText}</Badge>
-      </div>
-
-      <div className="preview-list" aria-label="Candidate NGO preview">
-        {ngoPreviewRows.map((row) => (
-          <div key={row.name} className="preview-row">
-            <div>
-              <strong>{row.name}</strong>
-              <span>{row.distance}</span>
-            </div>
-            <div>
-              <Badge tone={row.fit === "Review" ? "review" : "low"}>{row.fit}</Badge>
-              <span>{row.capacity}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
