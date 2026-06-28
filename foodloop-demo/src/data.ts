@@ -7,6 +7,7 @@ import type {
   ForecastSummary,
   MatchQueueBatch,
   SensorEvidence,
+  SharedRoutePlan,
 } from "./types";
 
 const toDatetimeLocalValue = (date: Date) => {
@@ -45,7 +46,7 @@ export const pageMeta: Array<{
     id: "route",
     label: "Shared Route",
     path: "/route",
-    status: "Develop later",
+    status: "Ready for walkthrough",
   },
   {
     id: "impact",
@@ -426,6 +427,97 @@ export const matchQueueBatches: MatchQueueBatch[] = [
     ],
   },
 ];
+
+export const sharedRoutePlan: SharedRoutePlan = {
+  id: "ROUTE-WC-014",
+  batchId: "FL-WC-0625-014",
+  title: "Accepted bakery surplus route",
+  donorName: "Sunrise Bakery",
+  ngoName: "Harbour Care Kitchen",
+  quantityLabel: "118 items",
+  itemDescription: "Assorted buns, rolls, croissants",
+  routeDistanceLabel: "1.4 km",
+  etaLabel: "16 min",
+  pickupWindow: "12:20 PM to 12:45 PM",
+  slaStatus: "On track",
+  driverName: "Kai Wong",
+  volunteerName: "Maya Lau",
+  routeNote:
+    "Short Wan Chai to Central handoff with pickup before the donor deadline.",
+  stops: [
+    {
+      id: "pickup",
+      kind: "pickup",
+      label: "Pickup",
+      name: "Sunrise Bakery",
+      address: "Queen's Road East, Wan Chai",
+      window: "12:20 PM to 12:45 PM",
+      contact: "Mr. Chan, bakery counter",
+      note: "Collect from the side entrance. Batch is sealed and ready.",
+    },
+    {
+      id: "dropoff",
+      kind: "dropoff",
+      label: "Drop-off",
+      name: "Harbour Care Kitchen",
+      address: "Central and Sheung Wan",
+      window: "12:55 PM to 1:15 PM",
+      contact: "Maya Lau, kitchen lead",
+      note: "Recipient has capacity for the full bakery batch today.",
+    },
+  ],
+  timeline: [
+    {
+      id: "submitted",
+      label: "Submitted",
+      time: "10:31 AM",
+      note: "Donor confirmed the batch record.",
+      status: "done",
+    },
+    {
+      id: "matched",
+      label: "Matched",
+      time: "10:38 AM",
+      note: "Harbour Care Kitchen ranked as the top fit.",
+      status: "done",
+    },
+    {
+      id: "accepted",
+      label: "Accepted",
+      time: "10:42 AM",
+      note: "Recipient accepted the batch.",
+      status: "done",
+    },
+    {
+      id: "pickup-scheduled",
+      label: "Pickup scheduled",
+      time: "12:20 PM",
+      note: "Driver assigned and route shared.",
+      status: "active",
+    },
+    {
+      id: "received",
+      label: "Received",
+      time: "Pending",
+      note: "NGO confirms after drop-off.",
+      status: "waiting",
+    },
+  ],
+  agent: {
+    agentName: "Route Agent",
+    confidence: 88,
+    etaLabel: "16 min",
+    pickupWindow: "12:20 PM to 12:45 PM",
+    statusLabel: "Window on track",
+    summary:
+      "The route keeps travel short, fits the recipient service window, and leaves donor-side buffer before the deadline.",
+    reasons: [
+      "Nearest accepted NGO with open bakery capacity.",
+      "Pickup window avoids the lunch traffic peak.",
+      "Receipt confirmation stays with the NGO volunteer.",
+    ],
+  },
+};
 
 export const fallbackAIModalCopy: Record<
   AIModalAction,

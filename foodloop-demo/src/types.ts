@@ -139,3 +139,54 @@ export interface AIModalResponse {
   source: "openrouter" | "fallback";
   model?: string;
 }
+
+export type RouteStopKind = "pickup" | "dropoff";
+
+export interface RouteStop {
+  id: string;
+  kind: RouteStopKind;
+  label: string;
+  name: string;
+  address: string;
+  window: string;
+  contact: string;
+  note: string;
+}
+
+export interface RouteTimelineStep {
+  id: string;
+  label: string;
+  time: string;
+  note: string;
+  status: "done" | "active" | "waiting";
+}
+
+export interface RouteAgentRecommendation {
+  agentName: string;
+  confidence: number;
+  etaLabel: string;
+  pickupWindow: string;
+  statusLabel: string;
+  summary: string;
+  reasons: string[];
+}
+
+export interface SharedRoutePlan {
+  id: string;
+  batchId: string;
+  title: string;
+  donorName: string;
+  ngoName: string;
+  quantityLabel: string;
+  itemDescription: string;
+  routeDistanceLabel: string;
+  etaLabel: string;
+  pickupWindow: string;
+  slaStatus: string;
+  driverName: string;
+  volunteerName: string;
+  routeNote: string;
+  stops: RouteStop[];
+  timeline: RouteTimelineStep[];
+  agent: RouteAgentRecommendation;
+}

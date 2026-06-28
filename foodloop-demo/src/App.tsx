@@ -42,6 +42,7 @@ import {
   stubContent,
 } from "./data";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
+import { SharedRoutePage } from "./SharedRoutePage";
 import type { BatchDraft, DemoPageId, IntakeStatus, Role } from "./types";
 
 type IntakeStage = "capture" | "review" | "confirm";
@@ -164,7 +165,7 @@ function App() {
         />
         <Route
           path="/route"
-          element={<StubPage pageId="route" activeRole={activeRole} />}
+          element={<SharedRoutePage activeRole={activeRole} />}
         />
         <Route
           path="/impact"
@@ -259,6 +260,10 @@ function TopBar({
       pageMeta[0],
     [location.pathname],
   );
+
+  useEffect(() => {
+    document.title = `FoodLoop RescueCore - ${currentPage.label}`;
+  }, [currentPage.label]);
 
   return (
     <header className="topbar">
