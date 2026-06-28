@@ -167,11 +167,11 @@ export const impactCumulativeMetricDefinitions: ImpactMetricDefinition[] = [
 ];
 
 export const impactCumulativeTrend: ImpactCumulativeTrendDatum[] = [
-  { label: "Mon", kgRescued: 82, mealsDelivered: 150, co2eAvoidedKg: 217 },
-  { label: "Tue", kgRescued: 178, mealsDelivered: 326, co2eAvoidedKg: 470 },
-  { label: "Wed", kgRescued: 282, mealsDelivered: 515, co2eAvoidedKg: 746 },
-  { label: "Thu", kgRescued: 400, mealsDelivered: 730, co2eAvoidedKg: 1058 },
-  { label: "Fri", kgRescued: 532, mealsDelivered: 970, co2eAvoidedKg: 1408 },
+  { label: "Mon", kgRescued: 74, mealsDelivered: 136, co2eAvoidedKg: 190 },
+  { label: "Tue", kgRescued: 156, mealsDelivered: 214, co2eAvoidedKg: 468 },
+  { label: "Wed", kgRescued: 231, mealsDelivered: 476, co2eAvoidedKg: 590 },
+  { label: "Thu", kgRescued: 419, mealsDelivered: 612, co2eAvoidedKg: 1125 },
+  { label: "Fri", kgRescued: 507, mealsDelivered: 988, co2eAvoidedKg: 1386 },
   { label: "Today", kgRescued: 680, mealsDelivered: 1240, co2eAvoidedKg: 1800 },
 ];
 

@@ -3070,6 +3070,36 @@ textarea:focus-visible {
   fill: var(--color-white);
   stroke: var(--impact-accent);
   stroke-width: 4;
+  transition:
+    fill var(--transition),
+    stroke var(--transition),
+    stroke-width var(--transition);
+}
+
+.impact-area-point-active .impact-area-point {
+  fill: var(--impact-accent);
+  stroke: var(--color-white);
+  stroke-width: 3;
+}
+
+.impact-area-hit-target {
+  fill: var(--impact-tint);
+  fill-opacity: 0;
+  stroke: transparent;
+  stroke-width: 2;
+  cursor: pointer;
+  outline: none;
+  pointer-events: all;
+  transition:
+    fill-opacity var(--transition),
+    stroke var(--transition);
+}
+
+.impact-area-point-active .impact-area-hit-target,
+.impact-area-hit-target:hover,
+.impact-area-hit-target:focus-visible {
+  fill-opacity: 0.78;
+  stroke: var(--impact-accent);
 }
 
 .impact-area-day {
@@ -3078,15 +3108,30 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
-.impact-area-direct-label {
-  fill: var(--color-slate-900);
-  font-size: 22px;
-  font-weight: 850;
+.impact-area-tooltip {
+  pointer-events: none;
 }
 
-.impact-area-direct-label-end {
-  fill: var(--impact-accent);
-  font-size: 26px;
+.impact-area-tooltip-box,
+.impact-area-tooltip-arrow {
+  fill: var(--color-slate-900);
+}
+
+.impact-area-tooltip-box {
+  filter: drop-shadow(0 8px 18px rgb(20 33 27 / 0.16));
+}
+
+.impact-area-tooltip-day {
+  fill: rgb(255 255 255 / 0.68);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.impact-area-tooltip-value {
+  fill: var(--color-white);
+  font-size: 15px;
+  font-weight: 850;
 }
 
 .impact-donut-layout {

@@ -386,6 +386,7 @@ function ImpactTrendPanel({
 }) {
   const [activeMetricKey, setActiveMetricKey] =
     useState<ImpactMetricKey>("kgRescued");
+  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
   const activeMetric =
     metrics.find((metric) => metric.key === activeMetricKey) ?? metrics[0];
   const chartValues = data.map((item) => item[activeMetric.key]);
@@ -425,13 +426,38 @@ function ImpactTrendPanel({
   const firstPoint = points[0];
   const lastPoint = points[points.length - 1];
   const areaPath = `${linePath} L ${lastPoint.x.toFixed(1)} ${chart.bottom} L ${firstPoint.x.toFixed(1)} ${chart.bottom} Z`;
-  const chartSummary = `${activeMetric.label} cumulative impact rises from ${formatMetricValue(
-    firstPoint.value,
-    activeMetric,
-  )} on ${firstPoint.label} to ${formatMetricValue(
-    lastPoint.value,
-    activeMetric,
-  )} today.`;
+  const activePoint =
+    activePointIndex === null ? null : points[activePointIndex] ?? null;
+  const tooltip = activePoint
+    ? {
+        width: 134,
+        height: 50,
+        gap: 12,
+      }
+    : null;
+  const tooltipY =
+    activePoint && tooltip
+      ? activePoint.y - tooltip.height - tooltip.gap < 8
+        ? activePoint.y + tooltip.gap
+        : activePoint.y - tooltip.height - tooltip.gap
+      : 0;
+  const tooltipX =
+    activePoint && tooltip
+      ? Math.min(
+          Math.max(activePoint.x - tooltip.width / 2, chart.left),
+          chart.right - tooltip.width,
+        )
+      : 0;
+  const tooltipArrowX =
+    activePoint && tooltip
+      ? Math.min(
+          Math.max(activePoint.x, tooltipX + 16),
+          tooltipX + tooltip.width - 16,
+        )
+      : 0;
+  const isTooltipBelow =
+    Boolean(activePoint && tooltip) && tooltipY > (activePoint?.y ?? 0);
+  const chartSummary = `Cumulative impact trend for ${activeMetric.label} across the demo week.`;
 
   return (
     <section
@@ -454,14 +480,28 @@ function ImpactTrendPanel({
             type="button"
             className={metric.key === activeMetricKey ? "metric-tab-active" : ""}
             aria-pressed={metric.key === activeMetricKey}
-            onClick={() => setActiveMetricKey(metric.key)}
+            onClick={() => {
+              setActiveMetricKey(metric.key);
+              setActivePointIndex(null);
+            }}
           >
             {metric.label}
           </button>
         ))}
       </div>
-      <figure className="impact-area-chart" role="img" aria-label={chartSummary}>
-        <svg viewBox={`0 0 ${chart.width} ${chart.height}`} aria-hidden="true">
+      <figure
+        className="impact-area-chart"
+        onPointerLeave={(event) => {
+          if (event.pointerType === "mouse") {
+            setActivePointIndex(null);
+          }
+        }}
+      >
+        <svg
+          viewBox={`0 0 ${chart.width} ${chart.height}`}
+          role="group"
+          aria-label={chartSummary}
+        >
           {[0.25, 0.5, 0.75, 1].map((guide) => {
             const y = chart.bottom - guide * (chart.bottom - chart.top);
 
@@ -478,39 +518,96 @@ function ImpactTrendPanel({
           })}
           <path className="impact-area-fill" d={areaPath} />
           <path className="impact-area-line" d={linePath} />
-          {points.map((point) => (
-            <g key={point.label}>
-              <circle
-                className="impact-area-point"
-                cx={point.x}
-                cy={point.y}
-                r={4.5}
-              />
-              <text
-                className="impact-area-day"
-                x={point.x}
-                y={226}
-                textAnchor="middle"
+          {points.map((point, index) => {
+            const isActive = index === activePointIndex;
+
+            return (
+              <g
+                key={point.label}
+                className={isActive ? "impact-area-point-active" : ""}
               >
-                {point.label}
+                <circle
+                  className="impact-area-point"
+                  cx={point.x}
+                  cy={point.y}
+                  r={4.5}
+                />
+                <text
+                  className="impact-area-day"
+                  x={point.x}
+                  y={226}
+                  textAnchor="middle"
+                >
+                  {point.label}
+                </text>
+                <circle
+                  className="impact-area-hit-target"
+                  cx={point.x}
+                  cy={point.y}
+                  r={16}
+                  role="button"
+                  tabIndex={0}
+                  focusable="true"
+                  aria-label={`${point.label}: ${formatMetricValue(
+                    point.value,
+                    activeMetric,
+                  )}`}
+                  onMouseEnter={() => setActivePointIndex(index)}
+                  onPointerDown={() => setActivePointIndex(index)}
+                  onTouchStart={() => setActivePointIndex(index)}
+                  onFocus={() => setActivePointIndex(index)}
+                  onBlur={() => {
+                    if (window.matchMedia("(hover: none)").matches) {
+                      return;
+                    }
+
+                    setActivePointIndex(null);
+                  }}
+                  onClick={() => setActivePointIndex(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setActivePointIndex(index);
+                    }
+                  }}
+                />
+              </g>
+            );
+          })}
+          {activePoint && tooltip ? (
+            <g
+              className="impact-area-tooltip"
+              transform={`translate(${tooltipX} ${tooltipY})`}
+              aria-hidden="true"
+            >
+              <path
+                className="impact-area-tooltip-arrow"
+                d={
+                  isTooltipBelow
+                    ? `M ${tooltipArrowX - tooltipX - 6} 0 L ${
+                        tooltipArrowX - tooltipX
+                      } -7 L ${tooltipArrowX - tooltipX + 6} 0 Z`
+                    : `M ${tooltipArrowX - tooltipX - 6} ${tooltip.height} L ${
+                        tooltipArrowX - tooltipX
+                      } ${tooltip.height + 7} L ${
+                        tooltipArrowX - tooltipX + 6
+                      } ${tooltip.height} Z`
+                }
+              />
+              <rect
+                className="impact-area-tooltip-box"
+                width={tooltip.width}
+                height={tooltip.height}
+                rx={6}
+              />
+              <text className="impact-area-tooltip-day" x={12} y={18}>
+                {activePoint.label}
+              </text>
+              <text className="impact-area-tooltip-value" x={12} y={37}>
+                {formatMetricValue(activePoint.value, activeMetric)}
               </text>
             </g>
-          ))}
-          <text
-            className="impact-area-direct-label"
-            x={Math.min(firstPoint.x + 12, chart.right - 128)}
-            y={firstPoint.y - 10}
-          >
-            {formatMetricValue(firstPoint.value, activeMetric)}
-          </text>
-          <text
-            className="impact-area-direct-label impact-area-direct-label-end"
-            x={lastPoint.x - 10}
-            y={Math.max(chart.top + 15, lastPoint.y - 12)}
-            textAnchor="end"
-          >
-            {formatMetricValue(lastPoint.value, activeMetric)}
-          </text>
+          ) : null}
         </svg>
       </figure>
     </section>
