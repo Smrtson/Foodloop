@@ -56,6 +56,14 @@ type ModalState =
       response: AIModalResponse;
     };
 
+interface NGOMatchQueuePageProps {
+  activeRole: Role;
+  selectedBatchId: string;
+  actionStates: Record<string, MatchActionState>;
+  onSelectBatch: (batchId: string) => void;
+  onActionStateChange: (batchId: string, nextState: MatchActionState) => void;
+}
+
 function getSelectedCandidate(batch: MatchQueueBatch) {
   return (
     batch.candidates.find((candidate) => candidate.id === batch.selectedCandidateId) ??
@@ -164,11 +172,13 @@ async function requestAgentCopy(
   return (await response.json()) as Partial<AIModalResponse>;
 }
 
-export function NGOMatchQueuePage({ activeRole }: { activeRole: Role }) {
-  const [selectedBatchId, setSelectedBatchId] = useState(matchQueueBatches[0].id);
-  const [actionStates, setActionStates] = useState<
-    Record<string, MatchActionState>
-  >({});
+export function NGOMatchQueuePage({
+  activeRole,
+  selectedBatchId,
+  actionStates,
+  onSelectBatch,
+  onActionStateChange,
+}: NGOMatchQueuePageProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
 
   const selectedBatch =
@@ -183,24 +193,14 @@ export function NGOMatchQueuePage({ activeRole }: { activeRole: Role }) {
     [actionStates],
   );
 
-  const updateActionState = (
-    batchId: string,
-    nextState: MatchActionState,
-  ) => {
-    setActionStates((current) => ({
-      ...current,
-      [batchId]: nextState,
-    }));
-  };
-
   const handleAccept = () => {
-    updateActionState(selectedBatch.id, "accepted");
+    onActionStateChange(selectedBatch.id, "accepted");
   };
 
   const openAgentModal = async (action: AIModalAction) => {
     const batch = selectedBatch;
     const candidate = selectedCandidate;
-    updateActionState(
+    onActionStateChange(
       batch.id,
       action === "request-info" ? "info-requested" : "declined",
     );
@@ -273,7 +273,7 @@ export function NGOMatchQueuePage({ activeRole }: { activeRole: Role }) {
           activeRole={activeRole}
           selectedBatchId={selectedBatch.id}
           actionStates={actionStates}
-          onSelectBatch={setSelectedBatchId}
+          onSelectBatch={onSelectBatch}
         />
 
         <div className="match-main-column">

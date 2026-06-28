@@ -17,8 +17,15 @@ import type { ErrorEvent, StyleSpecification } from "maplibre-gl";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { sharedRoutePlan } from "./data";
-import type { Role, RouteStop, RouteTimelineStep, SharedRoutePlan } from "./types";
+import { Link } from "react-router-dom";
+import { buildRoutePlanFromMatch } from "./data";
+import type {
+  AcceptedRouteMatch,
+  Role,
+  RouteStop,
+  RouteTimelineStep,
+  SharedRoutePlan,
+} from "./types";
 
 const completedReceivedTime = "1:08 PM";
 const routeSourceId = "shared-route-source";
@@ -44,12 +51,15 @@ const openStreetMapStyle: StyleSpecification = {
   ],
 };
 
-function getUpdatedTimeline(isReceived: boolean): RouteTimelineStep[] {
+function getUpdatedTimeline(
+  routePlan: SharedRoutePlan,
+  isReceived: boolean,
+): RouteTimelineStep[] {
   if (!isReceived) {
-    return sharedRoutePlan.timeline;
+    return routePlan.timeline;
   }
 
-  return sharedRoutePlan.timeline.map((step) => {
+  return routePlan.timeline.map((step) => {
     if (step.id === "pickup-scheduled") {
       return {
         ...step,
@@ -71,40 +81,105 @@ function getUpdatedTimeline(isReceived: boolean): RouteTimelineStep[] {
   });
 }
 
-function getCounterpart(activeRole: Role) {
+function getCounterpart(activeRole: Role, routePlan: SharedRoutePlan) {
   if (activeRole === "donor") {
     return {
       icon: Users,
       label: "Receiving partner",
-      name: sharedRoutePlan.ngoName,
-      meta: "Central and Sheung Wan",
-      detail: "Maya Lau confirms receipt after drop-off.",
-      note: "Capacity covers the full bakery batch.",
+      name: routePlan.ngoName,
+      meta: routePlan.stops[1]?.address ?? "Recipient location",
+      detail: `${routePlan.ngoName} confirms receipt after drop-off.`,
+      note: routePlan.stops[1]?.note ?? "Recipient capacity covers this batch.",
     };
   }
 
   return {
     icon: Building2,
     label: "Donor partner",
-    name: sharedRoutePlan.donorName,
-    meta: "Queen's Road East, Wan Chai",
-    detail: "Mr. Chan has the side entrance pickup ready.",
+    name: routePlan.donorName,
+    meta: routePlan.stops[0]?.address ?? "Pickup location",
+    detail: routePlan.stops[0]?.note ?? "Batch record is accepted for pickup.",
     note: "Batch record and pickup notes are already accepted.",
   };
 }
 
-export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
+export function SharedRoutePage({
+  activeRole,
+  acceptedRouteMatch,
+}: {
+  activeRole: Role;
+  acceptedRouteMatch: AcceptedRouteMatch | null;
+}) {
   const [isTracking, setIsTracking] = useState(false);
   const [isReceived, setIsReceived] = useState(false);
+  const routePlan = useMemo(
+    () =>
+      acceptedRouteMatch
+        ? buildRoutePlanFromMatch(
+            acceptedRouteMatch.batch,
+            acceptedRouteMatch.candidate,
+          )
+        : null,
+    [acceptedRouteMatch],
+  );
 
-  const timeline = useMemo(() => getUpdatedTimeline(isReceived), [isReceived]);
-  const counterpart = getCounterpart(activeRole);
+  useEffect(() => {
+    setIsTracking(false);
+    setIsReceived(false);
+  }, [routePlan?.id]);
+
+  const timeline = useMemo(
+    () => (routePlan ? getUpdatedTimeline(routePlan, isReceived) : []),
+    [isReceived, routePlan],
+  );
+
+  if (!routePlan) {
+    return (
+      <section className="page-stack route-page" aria-labelledby="route-title">
+        <div className="page-heading route-heading">
+          <div>
+            <p className="page-kicker">Accepted shared route</p>
+            <h1 id="route-title">Shared Route</h1>
+            <p>
+              Select a batch in the NGO Match Queue and accept the recommended NGO
+              before FoodLoop creates the shared route view.
+            </p>
+          </div>
+
+          <div className="heading-meta" aria-label="Route summary">
+            <span>{activeRole === "donor" ? "Donor view" : "NGO view"}</span>
+            <span>No accepted batch selected</span>
+          </div>
+        </div>
+
+        <section className="panel route-empty-state" aria-labelledby="route-empty-title">
+          <div className="route-empty-icon" aria-hidden="true">
+            <RouteIcon size={28} />
+          </div>
+          <div>
+            <h2 id="route-empty-title">No accepted route for this selection</h2>
+            <p>
+              The route page follows the currently selected batch. If that batch is
+              still awaiting action, requested info, or declined, there is no active
+              donor-to-NGO route to display.
+            </p>
+          </div>
+          <Link to="/matching" className="button button-primary">
+            <Users size={17} aria-hidden="true" />
+            Back to Matching
+          </Link>
+        </section>
+      </section>
+    );
+  }
+
+  const counterpart = getCounterpart(activeRole, routePlan);
   const CounterpartIcon = counterpart.icon;
   const routeStatus = isReceived
     ? "Received confirmed"
     : isTracking
       ? "Pickup tracking active"
-      : sharedRoutePlan.slaStatus;
+      : routePlan.slaStatus;
   const actionLabel =
     activeRole === "donor"
       ? isReceived
@@ -118,13 +193,13 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
   const actionStatus =
     activeRole === "donor"
       ? isReceived
-        ? "Harbour Care Kitchen has confirmed the received batch."
+        ? `${routePlan.ngoName} has confirmed the received batch.`
         : isTracking
           ? "Pickup tracking is active for the donor team."
           : "Track the scheduled pickup from the donor view."
       : isReceived
         ? "Receipt is confirmed and the shared route is closed."
-        : "Confirm once the batch arrives at Harbour Care Kitchen.";
+        : `Confirm once the batch arrives at ${routePlan.ngoName}.`;
   const isActionComplete = activeRole === "donor" ? isTracking || isReceived : isReceived;
 
   const handlePrimaryAction = () => {
@@ -150,7 +225,7 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
 
         <div className="heading-meta" aria-label="Route summary">
           <span>{activeRole === "donor" ? "Donor view" : "NGO view"}</span>
-          <span>{sharedRoutePlan.batchId}</span>
+          <span>{routePlan.batchId}</span>
           <span>{routeStatus}</span>
         </div>
       </div>
@@ -159,26 +234,26 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
         <RouteMetric
           icon={PackageCheck}
           label="Accepted pairing"
-          value={`${sharedRoutePlan.donorName} to ${sharedRoutePlan.ngoName}`}
-          note={sharedRoutePlan.quantityLabel}
+          value={`${routePlan.donorName} to ${routePlan.ngoName}`}
+          note={routePlan.quantityLabel}
         />
         <RouteMetric
           icon={Clock3}
           label="ETA"
-          value={sharedRoutePlan.etaLabel}
-          note={sharedRoutePlan.routeDistanceLabel}
+          value={routePlan.etaLabel}
+          note={routePlan.routeDistanceLabel}
         />
         <RouteMetric
           icon={CalendarClock}
           label="Pickup window"
-          value={sharedRoutePlan.pickupWindow}
-          note={sharedRoutePlan.slaStatus}
+          value={routePlan.pickupWindow}
+          note={routePlan.slaStatus}
         />
         <RouteMetric
           icon={RouteIcon}
           label="Assigned route"
-          value={sharedRoutePlan.driverName}
-          note={`Volunteer: ${sharedRoutePlan.volunteerName}`}
+          value={routePlan.driverName}
+          note={`Volunteer: ${routePlan.volunteerName}`}
         />
       </div>
 
@@ -191,10 +266,10 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
             meta={routeStatus}
           />
 
-          <RouteMap routePlan={sharedRoutePlan} isActive={isTracking || isReceived} />
+          <RouteMap routePlan={routePlan} isActive={isTracking || isReceived} />
 
           <div className="route-stop-grid" aria-label="Route stops">
-            {sharedRoutePlan.stops.map((stop) => (
+            {routePlan.stops.map((stop) => (
               <RouteStopCard key={stop.id} stop={stop} />
             ))}
           </div>
@@ -207,30 +282,30 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
           <RoutePanelHeading
             id="route-agent-title"
             icon={Bot}
-            title={sharedRoutePlan.agent.agentName}
-            meta={`${sharedRoutePlan.agent.confidence}% confidence`}
+            title={routePlan.agent.agentName}
+            meta={`${routePlan.agent.confidence}% confidence`}
           />
 
           <div className="route-agent-copy">
             <RouteIcon size={18} aria-hidden="true" />
-            <p>{sharedRoutePlan.agent.summary}</p>
+            <p>{routePlan.agent.summary}</p>
           </div>
 
           <div className="route-agent-facts" aria-label="Route recommendation">
             <RouteFact
               label="ETA"
-              value={sharedRoutePlan.agent.etaLabel}
-              note={sharedRoutePlan.routeDistanceLabel}
+              value={routePlan.agent.etaLabel}
+              note={routePlan.routeDistanceLabel}
             />
             <RouteFact
               label="Window"
-              value={sharedRoutePlan.agent.pickupWindow}
-              note={sharedRoutePlan.agent.statusLabel}
+              value={routePlan.agent.pickupWindow}
+              note={routePlan.agent.statusLabel}
             />
           </div>
 
           <ul className="route-reason-list">
-            {sharedRoutePlan.agent.reasons.map((reason) => (
+            {routePlan.agent.reasons.map((reason) => (
               <li key={reason}>
                 <Check size={14} aria-hidden="true" />
                 <span>{reason}</span>
@@ -309,8 +384,8 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
           </button>
 
           <div className="route-handoff-note">
-            <span>{sharedRoutePlan.title}</span>
-            <strong>{sharedRoutePlan.itemDescription}</strong>
+            <span>{routePlan.title}</span>
+            <strong>{routePlan.itemDescription}</strong>
             <p>{counterpart.note}</p>
           </div>
         </aside>
@@ -518,10 +593,6 @@ function RouteMap({
       aria-label={`${routePlan.donorName} to ${routePlan.ngoName} route map`}
     >
       <div ref={mapContainerRef} className="route-map-canvas" />
-      <div className="map-eta-card">
-        <span>{routePlan.agent.statusLabel}</span>
-        <strong>{routePlan.etaLabel}</strong>
-      </div>
     </div>
   );
 }
@@ -555,11 +626,6 @@ function RouteMapFallback({
       <div className="route-map-fallback-badge">
         <span>Local route fallback</span>
         <strong>{routePlan.routeDistanceLabel}</strong>
-      </div>
-
-      <div className="map-eta-card">
-        <span>{routePlan.agent.statusLabel}</span>
-        <strong>{routePlan.etaLabel}</strong>
       </div>
     </div>
   );

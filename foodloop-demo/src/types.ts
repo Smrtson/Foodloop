@@ -110,6 +110,11 @@ export interface MatchQueueBatch {
   }>;
 }
 
+export interface AcceptedRouteMatch {
+  batch: MatchQueueBatch;
+  candidate: NGOCandidate;
+}
+
 export type MatchAction = "accept" | "request-info" | "decline";
 
 export type MatchActionState =

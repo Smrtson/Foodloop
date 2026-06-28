@@ -37,13 +37,21 @@ import {
   analyzedDraft,
   emptyDraft,
   forecastSummary,
+  matchQueueBatches,
   pageMeta,
   sensorEvidence,
   stubContent,
 } from "./data";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
 import { SharedRoutePage } from "./SharedRoutePage";
-import type { BatchDraft, DemoPageId, IntakeStatus, Role } from "./types";
+import type {
+  AcceptedRouteMatch,
+  BatchDraft,
+  DemoPageId,
+  IntakeStatus,
+  MatchActionState,
+  Role,
+} from "./types";
 
 type IntakeStage = "capture" | "review" | "confirm";
 
@@ -153,6 +161,32 @@ const formatPickupDeadline = (value: string) => {
 
 function App() {
   const [activeRole, setActiveRole] = useState<Role>("donor");
+  const [selectedBatchId, setSelectedBatchId] = useState(matchQueueBatches[0].id);
+  const [matchActionStates, setMatchActionStates] = useState<
+    Record<string, MatchActionState>
+  >({});
+
+  const selectedBatch =
+    matchQueueBatches.find((batch) => batch.id === selectedBatchId) ??
+    matchQueueBatches[0];
+  const selectedCandidate =
+    selectedBatch.candidates.find(
+      (candidate) => candidate.id === selectedBatch.selectedCandidateId,
+    ) ?? selectedBatch.candidates[0];
+  const acceptedRouteMatch: AcceptedRouteMatch | null =
+    matchActionStates[selectedBatch.id] === "accepted"
+      ? { batch: selectedBatch, candidate: selectedCandidate }
+      : null;
+
+  const updateMatchActionState = (
+    batchId: string,
+    nextState: MatchActionState,
+  ) => {
+    setMatchActionStates((current) => ({
+      ...current,
+      [batchId]: nextState,
+    }));
+  };
 
   return (
     <AppShell activeRole={activeRole} onRoleChange={setActiveRole}>
@@ -161,11 +195,24 @@ function App() {
         <Route path="/intake" element={<DonorIntakePage activeRole={activeRole} />} />
         <Route
           path="/matching"
-          element={<NGOMatchQueuePage activeRole={activeRole} />}
+          element={
+            <NGOMatchQueuePage
+              activeRole={activeRole}
+              selectedBatchId={selectedBatchId}
+              actionStates={matchActionStates}
+              onSelectBatch={setSelectedBatchId}
+              onActionStateChange={updateMatchActionState}
+            />
+          }
         />
         <Route
           path="/route"
-          element={<SharedRoutePage activeRole={activeRole} />}
+          element={
+            <SharedRoutePage
+              activeRole={activeRole}
+              acceptedRouteMatch={acceptedRouteMatch}
+            />
+          }
         />
         <Route
           path="/impact"

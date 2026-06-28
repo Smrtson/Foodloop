@@ -6,6 +6,8 @@ import type {
   DemoPageId,
   ForecastSummary,
   MatchQueueBatch,
+  NGOCandidate,
+  RouteCoordinate,
   SensorEvidence,
   SharedRoutePlan,
 } from "./types";
@@ -532,6 +534,198 @@ export const sharedRoutePlan: SharedRoutePlan = {
     ],
   },
 };
+
+const donorCoordinates: Record<string, RouteCoordinate> = {
+  "Sunrise Bakery": [114.1712, 22.2765],
+  "Cedar Table Cafe": [114.1858, 22.2799],
+  "Tai Kok Tsui Market Stall 18": [114.162, 22.3192],
+};
+
+const candidateCoordinates: Record<string, RouteCoordinate> = {
+  "harbour-care-kitchen": [114.1584, 22.2819],
+  "wan-chai-community-pantry": [114.1749, 22.2774],
+  "north-point-meal-circle": [114.2018, 22.2913],
+  "tin-hau-supper-room": [114.191, 22.2822],
+  "causeway-neighbour-table": [114.1837, 22.2807],
+  "eastern-harbour-lunch-club": [114.2157, 22.2854],
+  "sham-shui-po-fresh-box": [114.1595, 22.3305],
+  "olympic-neighbour-kitchen": [114.1613, 22.3178],
+  "kowloon-west-share-table": [114.1695, 22.3046],
+};
+
+const fallbackPickupCoordinate: RouteCoordinate = [114.1694, 22.3193];
+const fallbackDropoffCoordinate: RouteCoordinate = [114.1623, 22.2808];
+
+const interpolateRoute = (
+  pickup: RouteCoordinate,
+  dropoff: RouteCoordinate,
+): RouteCoordinate[] => {
+  const [pickupLng, pickupLat] = pickup;
+  const [dropoffLng, dropoffLat] = dropoff;
+  const midpoint: RouteCoordinate = [
+    Number(((pickupLng + dropoffLng) / 2 + 0.0012).toFixed(4)),
+    Number(((pickupLat + dropoffLat) / 2 - 0.0008).toFixed(4)),
+  ];
+
+  return [pickup, midpoint, dropoff];
+};
+
+const getRouteEtaMinutes = (candidate: NGOCandidate) =>
+  Math.max(10, Math.round(candidate.distanceKm * 7 + 6));
+
+const getPickupStart = (deadline: string) => {
+  const timeMatch = deadline.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+
+  if (!timeMatch) {
+    return "Next available";
+  }
+
+  let hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2]);
+  const meridiem = timeMatch[3].toUpperCase();
+
+  if (meridiem === "PM" && hours !== 12) {
+    hours += 12;
+  }
+
+  if (meridiem === "AM" && hours === 12) {
+    hours = 0;
+  }
+
+  const totalMinutes = Math.max(0, hours * 60 + minutes - 85);
+  const displayHours24 = Math.floor(totalMinutes / 60);
+  const displayMinutes = totalMinutes % 60;
+  const displayMeridiem = displayHours24 >= 12 ? "PM" : "AM";
+  const displayHours12 = displayHours24 % 12 || 12;
+
+  return `${displayHours12}:${String(displayMinutes).padStart(2, "0")} ${displayMeridiem}`;
+};
+
+export function buildRoutePlanFromMatch(
+  batch: MatchQueueBatch,
+  candidate: NGOCandidate,
+): SharedRoutePlan {
+  if (
+    batch.id === sharedRoutePlan.batchId &&
+    candidate.id === "harbour-care-kitchen"
+  ) {
+    return {
+      ...sharedRoutePlan,
+      donorName: batch.donorName,
+      ngoName: candidate.name,
+      quantityLabel: batch.quantityLabel,
+      itemDescription: batch.itemDescription,
+      routeDistanceLabel: `${candidate.distanceKm.toFixed(1)} km`,
+    };
+  }
+
+  const pickupCoordinate = donorCoordinates[batch.donorName] ?? fallbackPickupCoordinate;
+  const dropoffCoordinate =
+    candidateCoordinates[candidate.id] ?? fallbackDropoffCoordinate;
+  const etaMinutes = getRouteEtaMinutes(candidate);
+  const pickupStart = getPickupStart(batch.pickupDeadline);
+  const pickupWindow =
+    pickupStart === "Next available"
+      ? candidate.serviceWindow
+      : `${pickupStart} to ${batch.pickupDeadline.replace(/^Today,\s*/, "")}`;
+  const statusLabel =
+    batch.handlingPriority === "Short window" ? "Tight window" : "Window on track";
+
+  return {
+    id: `ROUTE-${batch.id}`,
+    batchId: batch.id,
+    title: `Accepted ${batch.title.toLowerCase()} route`,
+    donorName: batch.donorName,
+    ngoName: candidate.name,
+    quantityLabel: batch.quantityLabel,
+    itemDescription: batch.itemDescription,
+    routeDistanceLabel: `${candidate.distanceKm.toFixed(1)} km`,
+    etaLabel: `${etaMinutes} min`,
+    pickupWindow,
+    slaStatus: statusLabel,
+    driverName: "FoodLoop Dispatch",
+    volunteerName: candidate.name,
+    routeNote: `${batch.donorLocation} handoff to ${candidate.district}, matched against ${candidate.capacityLabel.toLowerCase()}.`,
+    routeGeometry: {
+      type: "LineString",
+      coordinates: interpolateRoute(pickupCoordinate, dropoffCoordinate),
+    },
+    stops: [
+      {
+        id: "pickup",
+        kind: "pickup",
+        label: "Pickup",
+        name: batch.donorName,
+        address: batch.donorLocation,
+        coordinates: pickupCoordinate,
+        window: pickupWindow,
+        contact: "Donor pickup contact",
+        note: `${batch.storageEvidence}. ${batch.packaging}.`,
+      },
+      {
+        id: "dropoff",
+        kind: "dropoff",
+        label: "Drop-off",
+        name: candidate.name,
+        address: candidate.district,
+        coordinates: dropoffCoordinate,
+        window: candidate.serviceWindow,
+        contact: "NGO receiving lead",
+        note: candidate.reason,
+      },
+    ],
+    timeline: [
+      {
+        id: "submitted",
+        label: "Submitted",
+        time: batch.preparedTime,
+        note: `${batch.donorName} submitted ${batch.quantityLabel} of ${batch.itemDescription}.`,
+        status: "done",
+      },
+      {
+        id: "matched",
+        label: "Matched",
+        time: "AI ranked",
+        note: `${candidate.name} selected as the recommended NGO at ${candidate.score}% fit.`,
+        status: "done",
+      },
+      {
+        id: "accepted",
+        label: "Accepted",
+        time: "Now",
+        note: `${candidate.name} accepted the batch for routing.`,
+        status: "done",
+      },
+      {
+        id: "pickup-scheduled",
+        label: "Pickup scheduled",
+        time: pickupStart,
+        note: `Dispatch route generated before the ${batch.pickupDeadline} donor deadline.`,
+        status: "active",
+      },
+      {
+        id: "received",
+        label: "Received",
+        time: "Pending",
+        note: `${candidate.name} confirms after drop-off.`,
+        status: "waiting",
+      },
+    ],
+    agent: {
+      agentName: "Route Agent",
+      confidence: Math.min(95, Math.max(72, candidate.score - 4)),
+      etaLabel: `${etaMinutes} min`,
+      pickupWindow,
+      statusLabel,
+      summary: `The route connects ${batch.donorName} to ${candidate.name}, keeping the accepted match aligned with distance, capacity, and the donor pickup deadline.`,
+      reasons: [
+        `${candidate.distanceKm.toFixed(1)} km route from ${batch.donorLocation} to ${candidate.district}.`,
+        `${candidate.capacityLabel} covers ${batch.quantityLabel}.`,
+        `${candidate.demandLabel} and ${candidate.serviceWindow} fit the batch window.`,
+      ],
+    },
+  };
+}
 
 export const fallbackAIModalCopy: Record<
   AIModalAction,
