@@ -6,6 +6,8 @@ import type {
   DemoPageId,
   ForecastSummary,
   ImpactAgentSummary,
+  ImpactCumulativeTrendDatum,
+  ImpactMetricDefinition,
   ImpactOverallTotals,
   ImpactSeriesDatum,
   MatchQueueBatch,
@@ -140,13 +142,37 @@ export const impactOverallTotals: ImpactOverallTotals = {
   pickupSuccessRate: 94,
 };
 
-export const impactWeeklyRescueTrend: ImpactSeriesDatum[] = [
-  { label: "Mon", value: 82, tone: "green" },
-  { label: "Tue", value: 96, tone: "green" },
-  { label: "Wed", value: 104, tone: "green" },
-  { label: "Thu", value: 118, tone: "green" },
-  { label: "Fri", value: 132, tone: "green" },
-  { label: "Today", value: 148, tone: "green" },
+export const impactCumulativeMetricDefinitions: ImpactMetricDefinition[] = [
+  {
+    key: "kgRescued",
+    label: "kg rescued",
+    shortLabel: "kg",
+    unit: "kg",
+    tone: "green",
+  },
+  {
+    key: "mealsDelivered",
+    label: "meals delivered",
+    shortLabel: "meals",
+    unit: "meals",
+    tone: "blue",
+  },
+  {
+    key: "co2eAvoidedKg",
+    label: "CO2e avoided",
+    shortLabel: "CO2e",
+    unit: "kg CO2e",
+    tone: "green",
+  },
+];
+
+export const impactCumulativeTrend: ImpactCumulativeTrendDatum[] = [
+  { label: "Mon", kgRescued: 82, mealsDelivered: 150, co2eAvoidedKg: 217 },
+  { label: "Tue", kgRescued: 178, mealsDelivered: 326, co2eAvoidedKg: 470 },
+  { label: "Wed", kgRescued: 282, mealsDelivered: 515, co2eAvoidedKg: 746 },
+  { label: "Thu", kgRescued: 400, mealsDelivered: 730, co2eAvoidedKg: 1058 },
+  { label: "Fri", kgRescued: 532, mealsDelivered: 970, co2eAvoidedKg: 1408 },
+  { label: "Today", kgRescued: 680, mealsDelivered: 1240, co2eAvoidedKg: 1800 },
 ];
 
 export const impactDonationStatusBreakdown: ImpactSeriesDatum[] = [

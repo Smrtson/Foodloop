@@ -17,16 +17,24 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   impactAgentSummary,
+  impactCumulativeMetricDefinitions,
+  impactCumulativeTrend,
   impactDonationStatusBreakdown,
   impactOverallTotals,
   impactRouteTimeSaved,
-  impactWeeklyRescueTrend,
 } from "./data";
-import type { AcceptedRouteMatch, ImpactSeriesDatum, Role } from "./types";
+import type {
+  AcceptedRouteMatch,
+  ImpactCumulativeTrendDatum,
+  ImpactMetricDefinition,
+  ImpactMetricKey,
+  ImpactSeriesDatum,
+  Role,
+} from "./types";
 
 interface SharedImpactPageProps {
   activeRole: Role;
@@ -73,6 +81,10 @@ function formatWholeNumber(value: number) {
 
 function formatOneDecimal(value: number) {
   return value.toFixed(1);
+}
+
+function formatMetricValue(value: number, metric: ImpactMetricDefinition) {
+  return `${numberFormatter.format(Math.round(value))} ${metric.unit}`;
 }
 
 export function SharedImpactPage({
@@ -239,7 +251,10 @@ export function SharedImpactPage({
       </section>
 
       <div className="impact-dashboard-grid" aria-label="Impact charts">
-        <ImpactTrendPanel data={impactWeeklyRescueTrend} />
+        <ImpactTrendPanel
+          data={impactCumulativeTrend}
+          metrics={impactCumulativeMetricDefinitions}
+        />
         <ImpactStatusPanel data={impactDonationStatusBreakdown} />
         <ImpactTimeSavedPanel data={impactRouteTimeSaved} />
       </div>
@@ -362,47 +377,203 @@ function ImpactKpiCard({
   );
 }
 
-function ImpactTrendPanel({ data }: { data: ImpactSeriesDatum[] }) {
-  const maxValue = Math.max(...data.map((item) => item.value));
+function ImpactTrendPanel({
+  data,
+  metrics,
+}: {
+  data: ImpactCumulativeTrendDatum[];
+  metrics: ImpactMetricDefinition[];
+}) {
+  const [activeMetricKey, setActiveMetricKey] =
+    useState<ImpactMetricKey>("kgRescued");
+  const activeMetric =
+    metrics.find((metric) => metric.key === activeMetricKey) ?? metrics[0];
+  const chartValues = data.map((item) => item[activeMetric.key]);
+  const maxValue = Math.max(...chartValues);
+  const chart = {
+    width: 640,
+    height: 260,
+    left: 42,
+    right: 598,
+    top: 34,
+    bottom: 190,
+  };
+  const points = data.map((item, index) => {
+    const x =
+      chart.left +
+      (index / Math.max(1, data.length - 1)) * (chart.right - chart.left);
+    const y =
+      chart.bottom -
+      (item[activeMetric.key] / Math.max(1, maxValue)) *
+        (chart.bottom - chart.top);
+
+    return {
+      label: item.label,
+      value: item[activeMetric.key],
+      x,
+      y,
+    };
+  });
+  const linePath = points
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(
+          1,
+        )}`,
+    )
+    .join(" ");
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  const areaPath = `${linePath} L ${lastPoint.x.toFixed(1)} ${chart.bottom} L ${firstPoint.x.toFixed(1)} ${chart.bottom} Z`;
+  const chartSummary = `${activeMetric.label} cumulative impact rises from ${formatMetricValue(
+    firstPoint.value,
+    activeMetric,
+  )} on ${firstPoint.label} to ${formatMetricValue(
+    lastPoint.value,
+    activeMetric,
+  )} today.`;
 
   return (
-    <section className="panel impact-chart-panel" aria-labelledby="impact-trend-title">
+    <section
+      className={`panel impact-chart-panel impact-cumulative-panel impact-tone-${activeMetric.tone}`}
+      aria-labelledby="impact-trend-title"
+    >
       <ImpactPanelHeading
         id="impact-trend-title"
         icon={TrendingUp}
-        title="Weekly rescued trend"
-        meta="kg rescued"
+        title="Cumulative impact growth"
+        meta={activeMetric.shortLabel}
       />
-      <div className="impact-column-chart" aria-label="Weekly rescued food in kg">
-        {data.map((item) => (
-          <div key={item.label} className="impact-column">
-            <span
-              className={`impact-column-bar impact-tone-${item.tone}`}
-              style={{ height: `${Math.max(18, (item.value / maxValue) * 100)}%` }}
-              aria-hidden="true"
-            />
-            <strong>{item.value}</strong>
-            <small>{item.label}</small>
-          </div>
+      <p className="impact-chart-intro">
+        FoodLoop impact accumulates with every completed pickup.
+      </p>
+      <div className="impact-metric-tabs" role="group" aria-label="Impact metric">
+        {metrics.map((metric) => (
+          <button
+            key={metric.key}
+            type="button"
+            className={metric.key === activeMetricKey ? "metric-tab-active" : ""}
+            aria-pressed={metric.key === activeMetricKey}
+            onClick={() => setActiveMetricKey(metric.key)}
+          >
+            {metric.label}
+          </button>
         ))}
       </div>
+      <figure className="impact-area-chart" role="img" aria-label={chartSummary}>
+        <svg viewBox={`0 0 ${chart.width} ${chart.height}`} aria-hidden="true">
+          {[0.25, 0.5, 0.75, 1].map((guide) => {
+            const y = chart.bottom - guide * (chart.bottom - chart.top);
+
+            return (
+              <line
+                key={guide}
+                className="impact-area-guide"
+                x1={chart.left}
+                x2={chart.right}
+                y1={y}
+                y2={y}
+              />
+            );
+          })}
+          <path className="impact-area-fill" d={areaPath} />
+          <path className="impact-area-line" d={linePath} />
+          {points.map((point) => (
+            <g key={point.label}>
+              <circle
+                className="impact-area-point"
+                cx={point.x}
+                cy={point.y}
+                r={4.5}
+              />
+              <text
+                className="impact-area-day"
+                x={point.x}
+                y={226}
+                textAnchor="middle"
+              >
+                {point.label}
+              </text>
+            </g>
+          ))}
+          <text
+            className="impact-area-direct-label"
+            x={Math.min(firstPoint.x + 12, chart.right - 128)}
+            y={firstPoint.y - 10}
+          >
+            {formatMetricValue(firstPoint.value, activeMetric)}
+          </text>
+          <text
+            className="impact-area-direct-label impact-area-direct-label-end"
+            x={lastPoint.x - 10}
+            y={Math.max(chart.top + 15, lastPoint.y - 12)}
+            textAnchor="end"
+          >
+            {formatMetricValue(lastPoint.value, activeMetric)}
+          </text>
+        </svg>
+      </figure>
     </section>
   );
 }
 
 function ImpactStatusPanel({ data }: { data: ImpactSeriesDatum[] }) {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const completed = data.find((item) => item.label === "Completed")?.value ?? 0;
+  const statusSummary = data
+    .map((item) => `${item.label} ${item.value}%`)
+    .join(", ");
+  let cumulativePercent = 0;
+
   return (
     <section className="panel impact-chart-panel" aria-labelledby="impact-status-title">
       <ImpactPanelHeading
         id="impact-status-title"
         icon={BarChart3}
-        title="Donation status"
+        title="Donation closure success"
         meta="mock split"
       />
-      <div className="impact-horizontal-chart" aria-label="Donation status breakdown">
-        {data.map((item) => (
-          <BarRow key={item.label} item={item} suffix="%" />
-        ))}
+      <div className="impact-donut-layout">
+        <div
+          className="impact-donut-chart"
+          role="img"
+          aria-label={`Donation closure split: ${statusSummary}.`}
+        >
+          <svg viewBox="0 0 160 160" aria-hidden="true">
+            <circle className="impact-donut-base" cx="80" cy="80" r="58" />
+            {data.map((item) => {
+              const percent = (item.value / total) * 100;
+              const strokeDashoffset = -cumulativePercent;
+              cumulativePercent += percent;
+
+              return (
+                <circle
+                  key={item.label}
+                  className={`impact-donut-segment impact-tone-${item.tone}`}
+                  cx="80"
+                  cy="80"
+                  r="58"
+                  pathLength="100"
+                  strokeDasharray={`${percent} ${100 - percent}`}
+                  strokeDashoffset={strokeDashoffset}
+                />
+              );
+            })}
+          </svg>
+          <div className="impact-donut-center" aria-hidden="true">
+            <strong>{completed}%</strong>
+            <span>completed</span>
+          </div>
+        </div>
+        <ul className="impact-donut-legend">
+          {data.map((item) => (
+            <li key={item.label} className={`impact-tone-${item.tone}`}>
+              <span className="impact-legend-swatch" aria-hidden="true" />
+              <span>{item.label}</span>
+              <strong>{item.value}%</strong>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
@@ -410,49 +581,48 @@ function ImpactStatusPanel({ data }: { data: ImpactSeriesDatum[] }) {
 
 function ImpactTimeSavedPanel({ data }: { data: ImpactSeriesDatum[] }) {
   const totalMinutes = data.reduce((sum, item) => sum + item.value, 0);
+  const timeSummary = data
+    .map((item) => `${item.label} ${item.value} minutes`)
+    .join(", ");
 
   return (
     <section className="panel impact-chart-panel" aria-labelledby="impact-time-title">
       <ImpactPanelHeading
         id="impact-time-title"
         icon={Clock3}
-        title="Route time saved"
-        meta={`${totalMinutes} min`}
+        title="AI time savings"
+        meta={`${totalMinutes} min saved`}
       />
-      <div className="impact-horizontal-chart" aria-label="Operations time saved">
+      <div className="impact-time-total">
+        <strong>{totalMinutes} min saved</strong>
+        <span>Across intake, matching, and dispatch coordination</span>
+      </div>
+      <div
+        className="impact-stacked-time"
+        role="img"
+        aria-label={`AI time saved split: ${timeSummary}. Total ${totalMinutes} minutes saved.`}
+      >
         {data.map((item) => (
-          <BarRow key={item.label} item={item} suffix=" min" maxValue={totalMinutes} />
+          <div
+            key={item.label}
+            className={`impact-time-segment impact-tone-${item.tone}`}
+            style={{ flexBasis: `${(item.value / totalMinutes) * 100}%` }}
+          >
+            <span>{item.label}</span>
+            <strong>{item.value}m</strong>
+          </div>
         ))}
       </div>
+      <ul className="impact-time-list">
+        {data.map((item) => (
+          <li key={item.label} className={`impact-tone-${item.tone}`}>
+            <span className="impact-legend-swatch" aria-hidden="true" />
+            <span>{item.label}</span>
+            <strong>{item.value} min</strong>
+          </li>
+        ))}
+      </ul>
     </section>
-  );
-}
-
-function BarRow({
-  item,
-  suffix,
-  maxValue = 100,
-}: {
-  item: ImpactSeriesDatum;
-  suffix: string;
-  maxValue?: number;
-}) {
-  return (
-    <div className="impact-bar-row">
-      <div className="impact-bar-label">
-        <span>{item.label}</span>
-        <strong>
-          {item.value}
-          {suffix}
-        </strong>
-      </div>
-      <div className="impact-bar-track" aria-hidden="true">
-        <span
-          className={`impact-bar-fill impact-tone-${item.tone}`}
-          style={{ width: `${Math.max(6, (item.value / maxValue) * 100)}%` }}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -470,52 +640,61 @@ function ImpactRolePanel({
   currentImpact: CurrentPickupImpact;
 }) {
   const isDonor = activeRole === "donor";
-  const Icon = isDonor ? Building2 : Users;
-  const title = isDonor
-    ? "Donor ESG interpretation"
-    : "NGO community interpretation";
-  const meta = isDonor ? "Report view" : "Program view";
-  const intro = isDonor
-    ? `${donorName} can frame this receipt as ${formatOneDecimal(
-        currentImpact.kgRescued,
-      )} kg rescued, ${formatWholeNumber(
-        currentImpact.mealEquivalents,
-      )} meal equivalents, and ${formatOneDecimal(
-        currentImpact.co2eAvoidedKg,
-      )} kg CO2e avoided for batch ${batchId}.`
-    : `${ngoName} can frame this receipt as ${formatWholeNumber(
-        currentImpact.mealEquivalents,
-      )} meal equivalents received from ${donorName}, matched to demand and closed through shared routing.`;
-  const points = isDonor
-    ? [
-        "Attach the demo methodology beside ESG reporting language.",
-        "Show reduced disposal and confirmed community handoff.",
-        "Keep the receipt linked to the accepted NGO confirmation.",
-      ]
-    : [
-        "Use the receipt in pantry output and volunteer notes.",
-        "Connect donor reliability to future pickup planning.",
-        "Track received batches against service capacity.",
-      ];
 
   return (
     <section className="panel impact-role-panel" aria-labelledby="impact-role-title">
       <ImpactPanelHeading
         id="impact-role-title"
-        icon={Icon}
-        title={title}
-        meta={meta}
+        icon={isDonor ? Building2 : Users}
+        title="Shared donor and NGO value"
+        meta={isDonor ? "Donor view active" : "NGO view active"}
       />
-      <div className="impact-role-body">
-        <p>{intro}</p>
-        <ul>
-          {points.map((point) => (
-            <li key={point}>
-              <CheckCircle2 size={15} aria-hidden="true" />
-              <span>{point}</span>
-            </li>
-          ))}
-        </ul>
+      <div className="impact-role-comparison" aria-label="Role-specific value">
+        <article
+          className={`impact-role-card ${isDonor ? "impact-role-card-active" : ""}`}
+        >
+          <div className="impact-role-card-header">
+            <Building2 size={18} aria-hidden="true" />
+            <span>{isDonor ? "Active view" : "Donor view"}</span>
+          </div>
+          <h3>Donor sees ESG proof</h3>
+          <p>
+            {donorName} gets a receipt tied to batch {batchId}, confirmed by the
+            NGO before reporting language appears.
+          </p>
+          <strong>
+            {formatOneDecimal(currentImpact.kgRescued)} kg rescued and{" "}
+            {formatOneDecimal(currentImpact.co2eAvoidedKg)} kg CO2e avoided
+          </strong>
+          <ul>
+            <li>Reduced disposal is tied to a named recipient.</li>
+            <li>Receipt language stays separate from audited claims.</li>
+            <li>Export copy is ready for ESG follow-up.</li>
+          </ul>
+        </article>
+
+        <article
+          className={`impact-role-card ${!isDonor ? "impact-role-card-active" : ""}`}
+        >
+          <div className="impact-role-card-header">
+            <Users size={18} aria-hidden="true" />
+            <span>{!isDonor ? "Active view" : "NGO view"}</span>
+          </div>
+          <h3>NGO sees community output</h3>
+          <p>
+            {ngoName} sees the same receipt as service output from {donorName},
+            matched to demand and closed through shared routing.
+          </p>
+          <strong>
+            {formatWholeNumber(currentImpact.mealEquivalents)} meal equivalents
+            received
+          </strong>
+          <ul>
+            <li>Pantry output can be traced to the donor handoff.</li>
+            <li>Confirmed demand supports future pickup planning.</li>
+            <li>Volunteer notes can reference the shared receipt.</li>
+          </ul>
+        </article>
       </div>
       <div className="impact-report-actions" aria-label="Demo report actions">
         <button type="button" className="button button-secondary">

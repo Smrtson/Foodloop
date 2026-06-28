@@ -2784,15 +2784,15 @@ textarea:focus-visible {
 
 .impact-agent-callout p,
 .impact-agent-caveat p,
-.impact-role-body p {
+.impact-chart-intro,
+.impact-role-card p {
   margin: 0;
   color: var(--color-slate-600);
   font-size: 13px;
   line-height: 1.4;
 }
 
-.impact-agent-points,
-.impact-role-body ul {
+.impact-agent-points {
   list-style: none;
   margin: 0;
   display: grid;
@@ -2800,8 +2800,7 @@ textarea:focus-visible {
   padding: 0;
 }
 
-.impact-agent-points li,
-.impact-role-body li {
+.impact-agent-points li {
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2812,8 +2811,7 @@ textarea:focus-visible {
   line-height: 1.3;
 }
 
-.impact-agent-points svg,
-.impact-role-body svg {
+.impact-agent-points svg {
   margin-top: 2px;
   color: var(--color-green-700);
 }
@@ -2829,8 +2827,7 @@ textarea:focus-visible {
 .impact-panel-heading > span,
 .impact-receipt-stamp span,
 .impact-receipt-list dt,
-.impact-kpi-card span,
-.impact-bar-label span {
+.impact-kpi-card span {
   color: var(--color-slate-500);
   font-size: 11px;
   font-weight: 850;
@@ -2970,107 +2967,377 @@ textarea:focus-visible {
 .impact-dashboard-grid {
   min-width: 0;
   display: grid;
-  grid-template-columns: 1.1fr 0.95fr 0.95fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   align-items: stretch;
 }
 
 .impact-chart-panel {
   align-content: start;
+  overflow: hidden;
 }
 
-.impact-column-chart {
+.impact-cumulative-panel {
+  grid-column: 1 / -1;
+}
+
+.impact-metric-tabs {
   min-width: 0;
-  height: 180px;
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-slate-50);
+  padding: 3px;
+}
+
+.impact-metric-tabs button {
+  min-width: 0;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-slate-700);
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    box-shadow var(--transition);
+}
+
+.impact-metric-tabs button:hover {
+  background: var(--color-white);
+}
+
+.impact-metric-tabs button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.impact-metric-tabs .metric-tab-active {
+  background: var(--impact-accent);
+  color: var(--color-white);
+}
+
+.impact-metric-tabs .metric-tab-active:hover {
+  background: var(--impact-accent);
+  color: var(--color-white);
+}
+
+.impact-area-chart {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, var(--impact-tint), rgb(255 255 255 / 0.94)),
+    var(--color-white);
+  padding: 8px 8px 2px;
+}
+
+.impact-area-chart svg {
+  width: min(100%, 720px);
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.impact-area-guide {
+  stroke: rgb(183 200 190 / 0.5);
+  stroke-width: 1;
+}
+
+.impact-area-fill {
+  fill: var(--impact-accent);
+  opacity: 0.12;
+}
+
+.impact-area-line {
+  fill: none;
+  stroke: var(--impact-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5;
+}
+
+.impact-area-point {
+  fill: var(--color-white);
+  stroke: var(--impact-accent);
+  stroke-width: 4;
+}
+
+.impact-area-day {
+  fill: var(--color-slate-500);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.impact-area-direct-label {
+  fill: var(--color-slate-900);
+  font-size: 22px;
+  font-weight: 850;
+}
+
+.impact-area-direct-label-end {
+  fill: var(--impact-accent);
+  font-size: 26px;
+}
+
+.impact-donut-layout {
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  align-items: end;
-  gap: 8px;
-  padding-top: 8px;
+  grid-template-columns: minmax(132px, 170px) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
 }
 
-.impact-column {
+.impact-donut-chart {
+  position: relative;
+  width: 100%;
+  max-width: 170px;
+  aspect-ratio: 1;
+  margin-inline: auto;
+}
+
+.impact-donut-chart svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform: rotate(-90deg);
+}
+
+.impact-donut-base {
+  fill: none;
+  stroke: var(--color-slate-100);
+  stroke-width: 24;
+}
+
+.impact-donut-segment {
+  fill: none;
+  stroke: var(--impact-accent);
+  stroke-width: 24;
+}
+
+.impact-donut-center {
+  position: absolute;
+  inset: 30px;
   min-width: 0;
-  height: 156px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-white);
   text-align: center;
 }
 
-.impact-column-bar {
-  width: 100%;
-  min-height: 18px;
-  display: block;
-  border-radius: var(--radius-sm) var(--radius-sm) 2px 2px;
-  background: var(--impact-accent);
+.impact-donut-center strong {
+  color: var(--color-slate-900);
+  font-size: 26px;
+  line-height: 1;
 }
 
-.impact-column strong,
-.impact-bar-label strong {
-  color: var(--color-slate-900);
+.impact-donut-center span {
+  color: var(--color-slate-500);
   font-size: 12px;
-  line-height: 1.1;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.impact-donut-legend,
+.impact-time-list {
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+}
+
+.impact-donut-legend li,
+.impact-time-list li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-slate-700);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.impact-donut-legend strong,
+.impact-time-list strong {
+  color: var(--color-slate-900);
+  font-size: 13px;
   white-space: nowrap;
 }
 
-.impact-column small {
-  color: var(--color-slate-500);
-  font-size: 11px;
-  font-weight: 750;
+.impact-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--impact-accent);
+}
+
+.impact-time-total {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  border: 1px solid var(--color-blue-200);
+  border-radius: var(--radius-md);
+  background: var(--color-blue-50);
+  padding: 10px;
+  text-align: center;
+}
+
+.impact-time-total strong {
+  color: var(--color-slate-900);
+  font-size: 22px;
   line-height: 1.1;
 }
 
-.impact-horizontal-chart {
-  min-width: 0;
-  display: grid;
-  gap: 12px;
-  padding-top: 4px;
+.impact-time-total span {
+  color: var(--color-slate-600);
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.impact-bar-row {
+.impact-stacked-time {
   min-width: 0;
-  display: grid;
-  gap: 6px;
+  min-height: 78px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
 }
 
-.impact-bar-label {
+.impact-time-segment {
   min-width: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  background: var(--impact-accent);
+  color: var(--color-white);
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.impact-time-segment + .impact-time-segment {
+  border-left: 1px solid rgb(255 255 255 / 0.64);
+}
+
+.impact-time-segment span {
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.impact-time-segment strong {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.impact-role-panel {
+  align-items: start;
+}
+
+.impact-role-panel .impact-panel-heading {
+  grid-column: auto;
+}
+
+.impact-role-comparison {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.impact-role-card {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-slate-50);
+  padding: 12px;
+}
+
+.impact-role-card-active {
+  border-color: var(--color-green-200);
+  background:
+    linear-gradient(180deg, rgb(231 246 239 / 0.8), rgb(255 255 255 / 0.96)),
+    var(--color-white);
+  box-shadow: inset 0 0 0 1px rgb(23 143 93 / 0.08);
+}
+
+.impact-role-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.impact-bar-track {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--color-slate-100);
+.impact-role-card-header svg {
+  color: var(--color-blue-600);
 }
 
-.impact-bar-fill {
-  display: block;
-  height: 100%;
-  min-width: 6%;
-  border-radius: inherit;
-  background: var(--impact-accent);
+.impact-role-card-active .impact-role-card-header svg {
+  color: var(--color-green-700);
 }
 
-.impact-role-panel {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+.impact-role-card-header span {
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-slate-600);
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+  text-transform: uppercase;
 }
 
-.impact-role-panel .impact-panel-heading {
-  grid-column: 1 / -1;
+.impact-role-card-active .impact-role-card-header span {
+  border-color: var(--color-green-200);
+  background: var(--color-green-50);
+  color: var(--color-green-800);
 }
 
-.impact-role-body {
-  min-width: 0;
-  display: grid;
-  gap: 10px;
+.impact-role-card h3 {
+  margin: 0;
+  color: var(--color-slate-900);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.impact-role-card > strong {
+  color: var(--color-slate-900);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.impact-role-card ul {
+  margin: 0;
+  padding-left: 17px;
+  color: var(--color-slate-700);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.impact-role-card li + li {
+  margin-top: 5px;
 }
 
 .impact-report-actions {
@@ -3390,7 +3657,8 @@ textarea:focus-visible {
   .impact-top-grid,
   .impact-kpi-strip,
   .impact-dashboard-grid,
-  .impact-role-panel {
+  .impact-role-panel,
+  .impact-role-comparison {
     grid-template-columns: 1fr;
   }
 
@@ -3418,16 +3686,39 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .impact-column-chart {
-    gap: 5px;
+  .impact-metric-tabs {
+    width: 100%;
   }
 
-  .impact-column strong {
+  .impact-metric-tabs button {
+    padding: 0 6px;
     font-size: 11px;
+    white-space: normal;
   }
 
-  .impact-column small {
-    font-size: 10px;
+  .impact-area-chart {
+    padding: 4px 2px 0;
+  }
+
+  .impact-donut-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .impact-donut-chart {
+    max-width: 164px;
+  }
+
+  .impact-time-segment span {
+    display: none;
+  }
+
+  .impact-stacked-time {
+    min-height: 54px;
+  }
+
+  .impact-role-card-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .impact-report-actions {

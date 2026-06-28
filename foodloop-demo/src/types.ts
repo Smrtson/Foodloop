@@ -218,6 +218,26 @@ export interface ImpactSeriesDatum {
   tone: "green" | "blue" | "amber";
 }
 
+export type ImpactMetricKey =
+  | "kgRescued"
+  | "mealsDelivered"
+  | "co2eAvoidedKg";
+
+export interface ImpactCumulativeTrendDatum {
+  label: string;
+  kgRescued: number;
+  mealsDelivered: number;
+  co2eAvoidedKg: number;
+}
+
+export interface ImpactMetricDefinition {
+  key: ImpactMetricKey;
+  label: string;
+  shortLabel: string;
+  unit: string;
+  tone: ImpactSeriesDatum["tone"];
+}
+
 export interface ImpactAgentSummary {
   title: string;
   intro: string;
