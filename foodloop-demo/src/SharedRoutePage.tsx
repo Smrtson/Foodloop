@@ -12,12 +12,37 @@ import {
   Send,
   Users,
 } from "lucide-react";
+import maplibregl from "maplibre-gl";
+import type { ErrorEvent, StyleSpecification } from "maplibre-gl";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { sharedRoutePlan } from "./data";
-import type { Role, RouteStop, RouteTimelineStep } from "./types";
+import type { Role, RouteStop, RouteTimelineStep, SharedRoutePlan } from "./types";
 
 const completedReceivedTime = "1:08 PM";
+const routeSourceId = "shared-route-source";
+const routeCasingLayerId = "shared-route-casing";
+const routeLineLayerId = "shared-route-line";
+
+const openStreetMapStyle: StyleSpecification = {
+  version: 8,
+  sources: {
+    "osm-raster": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-raster",
+      type: "raster",
+      source: "osm-raster",
+    },
+  ],
+};
 
 function getUpdatedTimeline(isReceived: boolean): RouteTimelineStep[] {
   if (!isReceived) {
@@ -118,8 +143,8 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
           <p className="page-kicker">Accepted shared route</p>
           <h1 id="route-title">Shared Route</h1>
           <p>
-            Accepted donor-to-NGO pairing with the live pickup window, mock
-            route, shared timeline, and role-aware confirmation.
+            Accepted donor-to-NGO pairing with the live pickup window, route
+            map, shared timeline, and role-aware confirmation.
           </p>
         </div>
 
@@ -166,29 +191,7 @@ export function SharedRoutePage({ activeRole }: { activeRole: Role }) {
             meta={routeStatus}
           />
 
-          <div
-            className={[
-              "mock-route-map",
-              isTracking || isReceived ? "mock-route-map-active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            aria-label={`${sharedRoutePlan.donorName} to ${sharedRoutePlan.ngoName} route map`}
-          >
-            <span className="map-road map-road-main" aria-hidden="true" />
-            <span className="map-road map-road-cross" aria-hidden="true" />
-            <span className="map-route-line" aria-hidden="true" />
-            <span className="map-route-turn map-route-turn-first" aria-hidden="true" />
-            <span className="map-route-turn map-route-turn-second" aria-hidden="true" />
-
-            <MapWaypoint stop={sharedRoutePlan.stops[0]} />
-            <MapWaypoint stop={sharedRoutePlan.stops[1]} />
-
-            <div className="map-eta-card">
-              <span>{sharedRoutePlan.agent.statusLabel}</span>
-              <strong>{sharedRoutePlan.etaLabel}</strong>
-            </div>
-          </div>
+          <RouteMap routePlan={sharedRoutePlan} isActive={isTracking || isReceived} />
 
           <div className="route-stop-grid" aria-label="Route stops">
             {sharedRoutePlan.stops.map((stop) => (
@@ -359,6 +362,232 @@ function RoutePanelHeading({
       <span>{meta}</span>
     </div>
   );
+}
+
+function RouteMap({
+  routePlan,
+  isActive,
+}: {
+  routePlan: SharedRoutePlan;
+  isActive: boolean;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const [hasMapFailed, setHasMapFailed] = useState(false);
+
+  useEffect(() => {
+    if (hasMapFailed || !mapContainerRef.current) {
+      return;
+    }
+
+    const firstCoordinate = routePlan.routeGeometry.coordinates[0];
+
+    if (!firstCoordinate) {
+      setHasMapFailed(true);
+      return;
+    }
+
+    let isDisposed = false;
+    let map: maplibregl.Map | null = null;
+    const markers: maplibregl.Marker[] = [];
+
+    const showFallback = () => {
+      if (!isDisposed) {
+        setHasMapFailed(true);
+      }
+    };
+
+    try {
+      map = new maplibregl.Map({
+        container: mapContainerRef.current,
+        style: openStreetMapStyle,
+        center: firstCoordinate,
+        zoom: 14,
+        attributionControl: false,
+        dragRotate: false,
+        pitchWithRotate: false,
+      });
+
+      map.scrollZoom.disable();
+      map.dragRotate.disable();
+      map.touchZoomRotate.disableRotation();
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+
+      map.on("load", () => {
+        const loadedMap = map;
+
+        if (!loadedMap || isDisposed) {
+          return;
+        }
+
+        loadedMap.addSource(routeSourceId, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: routePlan.routeGeometry,
+          },
+        });
+
+        loadedMap.addLayer({
+          id: routeCasingLayerId,
+          type: "line",
+          source: routeSourceId,
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": "#ffffff",
+            "line-opacity": 0.92,
+            "line-width": 11,
+          },
+        });
+
+        loadedMap.addLayer({
+          id: routeLineLayerId,
+          type: "line",
+          source: routeSourceId,
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": "#2563eb",
+            "line-opacity": 0.96,
+            "line-width": 5,
+          },
+        });
+
+        routePlan.stops.forEach((stop) => {
+          const marker = new maplibregl.Marker({
+            element: createRouteMarkerElement(stop),
+            anchor: "bottom",
+            offset: [0, -4],
+          })
+            .setLngLat(stop.coordinates)
+            .addTo(loadedMap);
+
+          markers.push(marker);
+        });
+
+        const bounds = routePlan.routeGeometry.coordinates.reduce(
+          (currentBounds, coordinate) => currentBounds.extend(coordinate),
+          new maplibregl.LngLatBounds(firstCoordinate, firstCoordinate),
+        );
+
+        loadedMap.fitBounds(bounds, {
+          padding: {
+            top: 64,
+            right: 52,
+            bottom: 58,
+            left: 52,
+          },
+          maxZoom: 15,
+          duration: 0,
+        });
+      });
+
+      map.on("error", (event: ErrorEvent) => {
+        if (event.error) {
+          showFallback();
+        }
+      });
+    } catch {
+      showFallback();
+    }
+
+    return () => {
+      isDisposed = true;
+      markers.forEach((marker) => marker.remove());
+      map?.remove();
+    };
+  }, [hasMapFailed, routePlan]);
+
+  if (hasMapFailed) {
+    return <RouteMapFallback routePlan={routePlan} isActive={isActive} />;
+  }
+
+  return (
+    <div
+      className={[
+        "route-map-shell",
+        isActive ? "route-map-shell-active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-label={`${routePlan.donorName} to ${routePlan.ngoName} route map`}
+    >
+      <div ref={mapContainerRef} className="route-map-canvas" />
+      <div className="map-eta-card">
+        <span>{routePlan.agent.statusLabel}</span>
+        <strong>{routePlan.etaLabel}</strong>
+      </div>
+    </div>
+  );
+}
+
+function RouteMapFallback({
+  routePlan,
+  isActive,
+}: {
+  routePlan: SharedRoutePlan;
+  isActive: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "route-map-shell",
+        "route-map-fallback",
+        isActive ? "route-map-shell-active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      role="img"
+      aria-label={`${routePlan.donorName} to ${routePlan.ngoName} route map fallback`}
+    >
+      <span className="route-map-fallback-grid" aria-hidden="true" />
+      <span className="route-map-fallback-path" aria-hidden="true" />
+      <span className="route-map-fallback-path route-map-fallback-path-shadow" aria-hidden="true" />
+
+      <MapWaypoint stop={routePlan.stops[0]} />
+      <MapWaypoint stop={routePlan.stops[1]} />
+
+      <div className="route-map-fallback-badge">
+        <span>Local route fallback</span>
+        <strong>{routePlan.routeDistanceLabel}</strong>
+      </div>
+
+      <div className="map-eta-card">
+        <span>{routePlan.agent.statusLabel}</span>
+        <strong>{routePlan.etaLabel}</strong>
+      </div>
+    </div>
+  );
+}
+
+function createRouteMarkerElement(stop: RouteStop) {
+  const marker = document.createElement("div");
+  marker.className = `route-map-marker route-map-marker-${stop.kind}`;
+  marker.setAttribute("aria-label", `${stop.label}: ${stop.name}`);
+
+  const pin = document.createElement("span");
+  pin.className = "route-map-marker-pin";
+  pin.textContent = stop.kind === "pickup" ? "P" : "D";
+
+  const label = document.createElement("span");
+  label.className = "route-map-marker-label";
+  label.textContent = stop.label;
+
+  const name = document.createElement("strong");
+  name.textContent = stop.name;
+
+  const copy = document.createElement("span");
+  copy.className = "route-map-marker-copy";
+  copy.append(label, name);
+
+  marker.append(pin, copy);
+
+  return marker;
 }
 
 function MapWaypoint({ stop }: { stop: RouteStop }) {

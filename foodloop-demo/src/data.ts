@@ -444,6 +444,18 @@ export const sharedRoutePlan: SharedRoutePlan = {
   volunteerName: "Maya Lau",
   routeNote:
     "Short Wan Chai to Central handoff with pickup before the donor deadline.",
+  routeGeometry: {
+    type: "LineString",
+    coordinates: [
+      [114.1712, 22.2765],
+      [114.1698, 22.2773],
+      [114.168, 22.2782],
+      [114.1652, 22.2796],
+      [114.1623, 22.2808],
+      [114.1599, 22.2816],
+      [114.1584, 22.2819],
+    ],
+  },
   stops: [
     {
       id: "pickup",
@@ -451,6 +463,7 @@ export const sharedRoutePlan: SharedRoutePlan = {
       label: "Pickup",
       name: "Sunrise Bakery",
       address: "Queen's Road East, Wan Chai",
+      coordinates: [114.1712, 22.2765],
       window: "12:20 PM to 12:45 PM",
       contact: "Mr. Chan, bakery counter",
       note: "Collect from the side entrance. Batch is sealed and ready.",
@@ -461,6 +474,7 @@ export const sharedRoutePlan: SharedRoutePlan = {
       label: "Drop-off",
       name: "Harbour Care Kitchen",
       address: "Central and Sheung Wan",
+      coordinates: [114.1584, 22.2819],
       window: "12:55 PM to 1:15 PM",
       contact: "Maya Lau, kitchen lead",
       note: "Recipient has capacity for the full bakery batch today.",

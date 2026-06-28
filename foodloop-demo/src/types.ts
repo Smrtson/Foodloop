@@ -142,12 +142,20 @@ export interface AIModalResponse {
 
 export type RouteStopKind = "pickup" | "dropoff";
 
+export type RouteCoordinate = [longitude: number, latitude: number];
+
+export interface RouteLineGeometry {
+  type: "LineString";
+  coordinates: RouteCoordinate[];
+}
+
 export interface RouteStop {
   id: string;
   kind: RouteStopKind;
   label: string;
   name: string;
   address: string;
+  coordinates: RouteCoordinate;
   window: string;
   contact: string;
   note: string;
@@ -186,6 +194,7 @@ export interface SharedRoutePlan {
   driverName: string;
   volunteerName: string;
   routeNote: string;
+  routeGeometry: RouteLineGeometry;
   stops: RouteStop[];
   timeline: RouteTimelineStep[];
   agent: RouteAgentRecommendation;
