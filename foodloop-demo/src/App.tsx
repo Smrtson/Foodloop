@@ -43,6 +43,7 @@ import {
   stubContent,
 } from "./data";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
+import { SharedImpactPage } from "./SharedImpactPage";
 import { SharedRoutePage } from "./SharedRoutePage";
 import type {
   AcceptedRouteMatch,
@@ -165,6 +166,9 @@ function App() {
   const [matchActionStates, setMatchActionStates] = useState<
     Record<string, MatchActionState>
   >({});
+  const [receiptConfirmedByBatchId, setReceiptConfirmedByBatchId] = useState<
+    Record<string, boolean>
+  >({});
 
   const selectedBatch =
     matchQueueBatches.find((batch) => batch.id === selectedBatchId) ??
@@ -177,6 +181,9 @@ function App() {
     matchActionStates[selectedBatch.id] === "accepted"
       ? { batch: selectedBatch, candidate: selectedCandidate }
       : null;
+  const isReceiptConfirmed = acceptedRouteMatch
+    ? Boolean(receiptConfirmedByBatchId[acceptedRouteMatch.batch.id])
+    : false;
 
   const updateMatchActionState = (
     batchId: string,
@@ -185,6 +192,13 @@ function App() {
     setMatchActionStates((current) => ({
       ...current,
       [batchId]: nextState,
+    }));
+  };
+
+  const confirmReceiptForBatch = (batchId: string) => {
+    setReceiptConfirmedByBatchId((current) => ({
+      ...current,
+      [batchId]: true,
     }));
   };
 
@@ -211,12 +225,20 @@ function App() {
             <SharedRoutePage
               activeRole={activeRole}
               acceptedRouteMatch={acceptedRouteMatch}
+              isReceiptConfirmed={isReceiptConfirmed}
+              onReceiptConfirmed={confirmReceiptForBatch}
             />
           }
         />
         <Route
           path="/impact"
-          element={<StubPage pageId="impact" activeRole={activeRole} />}
+          element={
+            <SharedImpactPage
+              activeRole={activeRole}
+              acceptedRouteMatch={acceptedRouteMatch}
+              isReceiptConfirmed={isReceiptConfirmed}
+            />
+          }
         />
         <Route
           path="/architecture"

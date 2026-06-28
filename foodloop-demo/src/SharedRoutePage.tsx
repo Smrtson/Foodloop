@@ -106,12 +106,15 @@ function getCounterpart(activeRole: Role, routePlan: SharedRoutePlan) {
 export function SharedRoutePage({
   activeRole,
   acceptedRouteMatch,
+  isReceiptConfirmed,
+  onReceiptConfirmed,
 }: {
   activeRole: Role;
   acceptedRouteMatch: AcceptedRouteMatch | null;
+  isReceiptConfirmed: boolean;
+  onReceiptConfirmed: (batchId: string) => void;
 }) {
   const [isTracking, setIsTracking] = useState(false);
-  const [isReceived, setIsReceived] = useState(false);
   const routePlan = useMemo(
     () =>
       acceptedRouteMatch
@@ -125,12 +128,11 @@ export function SharedRoutePage({
 
   useEffect(() => {
     setIsTracking(false);
-    setIsReceived(false);
   }, [routePlan?.id]);
 
   const timeline = useMemo(
-    () => (routePlan ? getUpdatedTimeline(routePlan, isReceived) : []),
-    [isReceived, routePlan],
+    () => (routePlan ? getUpdatedTimeline(routePlan, isReceiptConfirmed) : []),
+    [isReceiptConfirmed, routePlan],
   );
 
   if (!routePlan) {
@@ -175,32 +177,33 @@ export function SharedRoutePage({
 
   const counterpart = getCounterpart(activeRole, routePlan);
   const CounterpartIcon = counterpart.icon;
-  const routeStatus = isReceived
+  const routeStatus = isReceiptConfirmed
     ? "Received confirmed"
     : isTracking
       ? "Pickup tracking active"
       : routePlan.slaStatus;
   const actionLabel =
     activeRole === "donor"
-      ? isReceived
+      ? isReceiptConfirmed
         ? "Receipt Confirmed"
         : isTracking
           ? "Tracking Active"
           : "Track Pickup"
-      : isReceived
+      : isReceiptConfirmed
         ? "Received Confirmed"
         : "Confirm Received";
   const actionStatus =
     activeRole === "donor"
-      ? isReceived
+      ? isReceiptConfirmed
         ? `${routePlan.ngoName} has confirmed the received batch.`
         : isTracking
           ? "Pickup tracking is active for the donor team."
           : "Track the scheduled pickup from the donor view."
-      : isReceived
+      : isReceiptConfirmed
         ? "Receipt is confirmed and the shared route is closed."
         : `Confirm once the batch arrives at ${routePlan.ngoName}.`;
-  const isActionComplete = activeRole === "donor" ? isTracking || isReceived : isReceived;
+  const isActionComplete =
+    activeRole === "donor" ? isTracking || isReceiptConfirmed : isReceiptConfirmed;
 
   const handlePrimaryAction = () => {
     if (activeRole === "donor") {
@@ -208,7 +211,7 @@ export function SharedRoutePage({
       return;
     }
 
-    setIsReceived(true);
+    onReceiptConfirmed(routePlan.batchId);
   };
 
   return (
@@ -266,7 +269,10 @@ export function SharedRoutePage({
             meta={routeStatus}
           />
 
-          <RouteMap routePlan={routePlan} isActive={isTracking || isReceived} />
+          <RouteMap
+            routePlan={routePlan}
+            isActive={isTracking || isReceiptConfirmed}
+          />
 
           <div className="route-stop-grid" aria-label="Route stops">
             {routePlan.stops.map((stop) => (
@@ -319,7 +325,7 @@ export function SharedRoutePage({
             id="route-timeline-title"
             icon={CheckCircle2}
             title="Shared timeline"
-            meta={isReceived ? "Closed" : "In progress"}
+            meta={isReceiptConfirmed ? "Closed" : "In progress"}
           />
 
           <ol className="route-timeline">

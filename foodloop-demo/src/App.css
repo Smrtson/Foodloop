@@ -2666,6 +2666,425 @@ textarea:focus-visible {
   padding: 10px;
 }
 
+.impact-page {
+  gap: 12px;
+}
+
+.impact-heading {
+  align-items: flex-start;
+}
+
+.impact-lock-state {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+}
+
+.impact-lock-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-blue-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-blue-50);
+  color: var(--color-blue-600);
+}
+
+.impact-lock-state h2 {
+  margin: 0;
+  color: var(--color-slate-900);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.impact-lock-state p {
+  max-width: 560px;
+  margin: 8px auto 0;
+  color: var(--color-slate-600);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.impact-top-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(340px, 0.96fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.impact-ai-panel,
+.impact-receipt-panel,
+.impact-chart-panel,
+.impact-role-panel {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.impact-panel-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.impact-panel-heading div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.impact-panel-heading svg {
+  flex: 0 0 auto;
+  color: var(--color-blue-600);
+}
+
+.impact-panel-heading h2 {
+  margin: 0;
+  color: var(--color-slate-900);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.impact-panel-heading > span {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-blue-200);
+  border-radius: var(--radius-sm);
+  background: var(--color-blue-50);
+  color: var(--color-blue-700);
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
+.impact-agent-callout,
+.impact-agent-caveat {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  border: 1px solid var(--color-blue-200);
+  border-radius: var(--radius-md);
+  background: var(--color-blue-50);
+  padding: 10px;
+}
+
+.impact-agent-callout svg {
+  margin-top: 2px;
+  color: var(--color-blue-600);
+}
+
+.impact-agent-callout p,
+.impact-agent-caveat p,
+.impact-role-body p {
+  margin: 0;
+  color: var(--color-slate-600);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.impact-agent-points,
+.impact-role-body ul {
+  list-style: none;
+  margin: 0;
+  display: grid;
+  gap: 7px;
+  padding: 0;
+}
+
+.impact-agent-points li,
+.impact-role-body li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  color: var(--color-slate-700);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.impact-agent-points svg,
+.impact-role-body svg {
+  margin-top: 2px;
+  color: var(--color-green-700);
+}
+
+.impact-agent-caveat {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  border-color: var(--color-amber-100);
+  background: var(--color-amber-50);
+}
+
+.impact-agent-caveat span,
+.impact-panel-heading > span,
+.impact-receipt-stamp span,
+.impact-receipt-list dt,
+.impact-kpi-card span,
+.impact-bar-label span {
+  color: var(--color-slate-500);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.impact-receipt-card {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  border: 1px dashed var(--color-green-200);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgb(231 246 239 / 0.64), rgb(255 255 255 / 0.94)),
+    var(--color-white);
+  padding: 12px;
+}
+
+.impact-receipt-stamp {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--color-green-200);
+  border-radius: var(--radius-md);
+  background: var(--color-green-50);
+  color: var(--color-green-800);
+  padding: 10px;
+}
+
+.impact-receipt-stamp svg {
+  color: var(--color-green-700);
+}
+
+.impact-receipt-stamp div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.impact-receipt-stamp strong {
+  color: var(--color-slate-900);
+  font-size: 14px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.impact-receipt-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.impact-receipt-list div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  padding: 9px;
+}
+
+.impact-receipt-list dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-slate-900);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.impact-kpi-strip {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.impact-kpi-card {
+  --impact-accent: var(--color-blue-600);
+  --impact-tint: var(--color-blue-50);
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.impact-kpi-card > svg {
+  color: var(--impact-accent);
+}
+
+.impact-kpi-card div {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.impact-kpi-card strong {
+  min-width: 0;
+  color: var(--color-slate-900);
+  font-size: 16px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.impact-kpi-card small {
+  min-width: 0;
+  color: var(--color-slate-600);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.impact-tone-green {
+  --impact-accent: var(--color-green-700);
+  --impact-tint: var(--color-green-50);
+}
+
+.impact-tone-blue {
+  --impact-accent: var(--color-blue-600);
+  --impact-tint: var(--color-blue-50);
+}
+
+.impact-tone-amber {
+  --impact-accent: var(--color-amber-700);
+  --impact-tint: var(--color-amber-50);
+}
+
+.impact-dashboard-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1.1fr 0.95fr 0.95fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.impact-chart-panel {
+  align-content: start;
+}
+
+.impact-column-chart {
+  min-width: 0;
+  height: 180px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.impact-column {
+  min-width: 0;
+  height: 156px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  text-align: center;
+}
+
+.impact-column-bar {
+  width: 100%;
+  min-height: 18px;
+  display: block;
+  border-radius: var(--radius-sm) var(--radius-sm) 2px 2px;
+  background: var(--impact-accent);
+}
+
+.impact-column strong,
+.impact-bar-label strong {
+  color: var(--color-slate-900);
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.impact-column small {
+  color: var(--color-slate-500);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.impact-horizontal-chart {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.impact-bar-row {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.impact-bar-label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.impact-bar-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-slate-100);
+}
+
+.impact-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 6%;
+  border-radius: inherit;
+  background: var(--impact-accent);
+}
+
+.impact-role-panel {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.impact-role-panel .impact-panel-heading {
+  grid-column: 1 / -1;
+}
+
+.impact-role-body {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.impact-report-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.impact-report-actions .button {
+  white-space: nowrap;
+}
+
 @media (max-width: 1240px) {
   .match-workspace-grid {
     grid-template-columns: minmax(236px, 292px) minmax(0, 1fr);
@@ -2953,6 +3372,72 @@ textarea:focus-visible {
 
   .photo-frame {
     max-height: none;
+  }
+}
+
+@media (max-width: 1240px) {
+  .impact-kpi-strip,
+  .impact-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .impact-chart-panel:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
+  .impact-top-grid,
+  .impact-kpi-strip,
+  .impact-dashboard-grid,
+  .impact-role-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .impact-chart-panel:first-child {
+    grid-column: span 1;
+  }
+
+  .impact-report-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 620px) {
+  .impact-lock-state {
+    min-height: 300px;
+    padding: 24px 14px;
+  }
+
+  .impact-panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .impact-receipt-list {
+    grid-template-columns: 1fr;
+  }
+
+  .impact-column-chart {
+    gap: 5px;
+  }
+
+  .impact-column strong {
+    font-size: 11px;
+  }
+
+  .impact-column small {
+    font-size: 10px;
+  }
+
+  .impact-report-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .impact-report-actions .button {
+    width: 100%;
+    white-space: normal;
   }
 }
 

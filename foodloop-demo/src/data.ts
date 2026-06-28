@@ -5,6 +5,9 @@ import type {
   BatchDraft,
   DemoPageId,
   ForecastSummary,
+  ImpactAgentSummary,
+  ImpactOverallTotals,
+  ImpactSeriesDatum,
   MatchQueueBatch,
   NGOCandidate,
   RouteCoordinate,
@@ -54,7 +57,7 @@ export const pageMeta: Array<{
     id: "impact",
     label: "Shared Impact",
     path: "/impact",
-    status: "Develop later",
+    status: "Unlocks after receipt",
   },
   {
     id: "architecture",
@@ -128,6 +131,47 @@ export const sensorEvidence: SensorEvidence = {
   holdingStatus: "Holding stable",
   sensorAttachment: "Tag FL-WC-17",
   lastReadingAt: "10:24 AM",
+};
+
+export const impactOverallTotals: ImpactOverallTotals = {
+  foodRescuedKg: 680,
+  mealEquivalents: 1240,
+  co2eAvoidedTonnes: 1.8,
+  pickupSuccessRate: 94,
+};
+
+export const impactWeeklyRescueTrend: ImpactSeriesDatum[] = [
+  { label: "Mon", value: 82, tone: "green" },
+  { label: "Tue", value: 96, tone: "green" },
+  { label: "Wed", value: 104, tone: "green" },
+  { label: "Thu", value: 118, tone: "green" },
+  { label: "Fri", value: 132, tone: "green" },
+  { label: "Today", value: 148, tone: "green" },
+];
+
+export const impactDonationStatusBreakdown: ImpactSeriesDatum[] = [
+  { label: "Completed", value: 74, tone: "green" },
+  { label: "Rerouted", value: 16, tone: "blue" },
+  { label: "Pending receipt", value: 10, tone: "amber" },
+];
+
+export const impactRouteTimeSaved: ImpactSeriesDatum[] = [
+  { label: "Intake cleanup", value: 22, tone: "blue" },
+  { label: "Recipient matching", value: 34, tone: "green" },
+  { label: "Dispatch coordination", value: 18, tone: "amber" },
+];
+
+export const impactAgentSummary: ImpactAgentSummary = {
+  title: "AI Impact Agent summary",
+  intro:
+    "FoodLoop converted the confirmed handoff into an impact story across rescue volume, community value, ESG reporting, and operational efficiency.",
+  points: [
+    "This pickup adds a receipt-level impact estimate to the overall FoodLoop demo totals.",
+    "NGO confirmation closes the loop before impact language appears.",
+    "FoodLoop keeps demo estimates separate from audited measurement claims.",
+  ],
+  caveat:
+    "All current-pickup impact values use deterministic demo formulas for pitch clarity.",
 };
 
 export const ngoPreviewRows = [

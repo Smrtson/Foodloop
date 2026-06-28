@@ -204,3 +204,23 @@ export interface SharedRoutePlan {
   timeline: RouteTimelineStep[];
   agent: RouteAgentRecommendation;
 }
+
+export interface ImpactOverallTotals {
+  foodRescuedKg: number;
+  mealEquivalents: number;
+  co2eAvoidedTonnes: number;
+  pickupSuccessRate: number;
+}
+
+export interface ImpactSeriesDatum {
+  label: string;
+  value: number;
+  tone: "green" | "blue" | "amber";
+}
+
+export interface ImpactAgentSummary {
+  title: string;
+  intro: string;
+  points: string[];
+  caveat: string;
+}
