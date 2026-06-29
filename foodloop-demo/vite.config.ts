@@ -9,6 +9,8 @@ declare const process: {
 const openRouterChatEndpoint = "https://openrouter.ai/api/v1/chat/completions";
 const defaultOpenRouterModel = "openai/gpt-4o-mini";
 const openRouterTimeoutMs = 12_000;
+const openRouterMaxAttempts = 2;
+const openRouterRetryDelayMs = 700;
 
 type AISource = "openrouter" | "fallback";
 type HandlingPriority = "Low handling risk" | "Needs confirmation" | "Short window";
@@ -217,7 +219,7 @@ const fallbackDraft: BatchDraft = {
 };
 
 const fallbackRecommendation: AgentRecommendation = {
-  agentName: "AI Intake Agent",
+  agentName: "FoodLoop Intake AI",
   confidence: 86,
   extractedCategory: "Bakery surplus",
   extractedQuantity: "118 items",
@@ -227,7 +229,7 @@ const fallbackRecommendation: AgentRecommendation = {
   requiredConfirmation: "Donor confirms category, quantity, and pickup window.",
   handlingPriority: "Low handling risk",
   summary:
-    "AI drafted a structured batch from the photo. It is decision support only.",
+    "FoodLoop AI drafted a structured batch from the photo. It is decision support only.",
 };
 
 const fallbackForecast: ForecastSummary = {
@@ -251,7 +253,7 @@ const fallbackModalCopy: Record<
 > = {
   "request-info": {
     title: "Information request draft",
-    intro: "Fallback demo copy generated without a live AI response.",
+    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
     message:
       "Please confirm the final count, pickup contact, holding location, and any packaging notes before the recipient accepts this batch.",
     nextSteps: [
@@ -260,11 +262,11 @@ const fallbackModalCopy: Record<
       "Refresh the match recommendation after the donor replies.",
     ],
     confidenceNote:
-      "This text is canned for the local demo. Add OPENROUTER_API_KEY for live generated wording.",
+      "Live FoodLoop AI did not return a usable draft for this action.",
   },
   decline: {
     title: "Decline and reroute note",
-    intro: "Fallback demo copy generated without a live AI response.",
+    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
     message:
       "Thank you for reviewing this opportunity. We cannot accept the current batch window, so FoodLoop should offer it to the next matched recipient.",
     nextSteps: [
@@ -273,12 +275,12 @@ const fallbackModalCopy: Record<
       "Notify the donor only after a new recipient is selected.",
     ],
     confidenceNote:
-      "This text is canned for the local demo. Add OPENROUTER_API_KEY for live generated wording.",
+      "Live FoodLoop AI did not return a usable draft for this action.",
   },
 };
 
 const fallbackImpactResponse: ImpactAgentResponse = {
-  title: "AI Impact Agent summary",
+  title: "FoodLoop impact summary",
   intro:
     "FoodLoop converted the confirmed handoff into an impact story across rescue volume, community value, ESG reporting, and operational efficiency.",
   points: [
@@ -330,6 +332,21 @@ const normaliseStringArray = (
     .slice(0, maxItems);
 
   return items.length > 0 ? items : fallback;
+};
+
+const firstArrayValue = (
+  record: Record<string, unknown>,
+  keys: string[],
+): unknown[] | null => {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return null;
 };
 
 const readRequestBody = (request: ReadableRequestBody) =>
@@ -429,6 +446,68 @@ const requestOpenRouterContent = async ({
   } finally {
     clearTimeout(timeoutId);
   }
+};
+
+const wait = (durationMs: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+
+const requestNormalisedOpenRouterJson = async <T>({
+  apiKey,
+  model,
+  temperature,
+  messages,
+  normalise,
+  invalidDetail,
+}: {
+  apiKey: string;
+  model: string;
+  temperature: number;
+  messages: Array<{ role: "system" | "user"; content: string }>;
+  normalise: (value: unknown) => T | null;
+  invalidDetail: string;
+}): Promise<{ ok: true; response: T } | { ok: false; detail: string }> => {
+  let fallbackDetail =
+    "Live FoodLoop AI request failed or timed out; using fallback demo data.";
+
+  for (let attempt = 0; attempt < openRouterMaxAttempts; attempt += 1) {
+    if (attempt > 0) {
+      await wait(openRouterRetryDelayMs);
+    }
+
+    try {
+      const result = await requestOpenRouterContent({
+        apiKey,
+        model,
+        temperature,
+        messages,
+      });
+
+      if (!result.ok) {
+        fallbackDetail = `Live FoodLoop AI returned upstream status ${result.status}; using fallback demo data.`;
+
+        if (result.status === 401 || result.status === 403 || result.status === 404) {
+          break;
+        }
+
+        continue;
+      }
+
+      const response = normalise(parseAgentJson(result.content));
+
+      if (response) {
+        return { ok: true, response };
+      }
+
+      fallbackDetail = invalidDetail;
+    } catch {
+      fallbackDetail =
+        "Live FoodLoop AI request failed or timed out; using fallback demo data.";
+    }
+  }
+
+  return { ok: false, detail: fallbackDetail };
 };
 
 const getScenarioFallback = (scenario?: IntakeScenarioPayload) => ({
@@ -637,8 +716,8 @@ const fallbackMatchRankResponse = (
       draft.itemDescription || fallback.categoryHint
     }.`,
     ngoFitExplanation: detail
-      ? `Fallback ranking used known demo recipients. ${detail}`
-      : "Fallback ranking used known demo recipients and did not add unverified NGOs.",
+      ? `Fallback demo data ranked known recipients. ${detail}`
+      : "Fallback demo data ranked known recipients and did not add unverified NGOs.",
     handlingNotes:
       draft.handlingPriority === "Short window"
         ? "Use a nearby recipient with capacity inside the donor pickup window."
@@ -656,40 +735,110 @@ const normaliseMatchRankResponse = (
   request: MatchRankAgentRequest,
   model: string,
 ): MatchRankAgentResponse | null => {
-  if (!isRecord(value) || !Array.isArray(value.candidates)) {
+  if (!isRecord(value)) {
     return null;
   }
 
+  const candidateValues = firstArrayValue(value, [
+    "candidates",
+    "rankedCandidates",
+    "rankings",
+    "matches",
+    "ngos",
+    "recommendations",
+  ]);
+
   const candidatePool = cloneCandidatePool(request.candidatePool);
+  const hasLiveNarrative = [
+    value.aiSummary,
+    value.summary,
+    value.ngoFitExplanation,
+    value.fitExplanation,
+    value.explanation,
+    value.handlingNotes,
+    value.routePreview,
+  ].some((item) => typeof item === "string" && Boolean(item.trim()));
+
+  if (!candidateValues && !hasLiveNarrative) {
+    return null;
+  }
+
   const knownCandidates = new Map(
     candidatePool.map((candidate) => [candidate.id, candidate]),
+  );
+  const knownCandidatesByName = new Map(
+    candidatePool.map((candidate) => [candidate.name.toLowerCase(), candidate]),
   );
   const rankedCandidates: NGOCandidate[] = [];
   const seenCandidateIds = new Set<string>();
 
-  for (const candidateValue of value.candidates) {
-    if (!isRecord(candidateValue)) {
+  const candidateInputs =
+    candidateValues ?? candidatePool.map((candidate) => ({ id: candidate.id }));
+
+  for (const candidateValue of candidateInputs) {
+    const candidateRecord = isRecord(candidateValue)
+      ? candidateValue
+      : typeof candidateValue === "string"
+        ? { id: candidateValue, name: candidateValue }
+        : null;
+
+    if (!candidateRecord) {
       continue;
     }
 
-    const id = asString(candidateValue.id, "");
-    const knownCandidate = knownCandidates.get(id);
+    const nestedCandidate =
+      isRecord(candidateRecord.candidate)
+        ? candidateRecord.candidate
+        : isRecord(candidateRecord.ngo)
+          ? candidateRecord.ngo
+          : candidateRecord;
+    const id = asString(
+      nestedCandidate.id ??
+        nestedCandidate.candidateId ??
+        nestedCandidate.ngoId ??
+        candidateRecord.id ??
+        candidateRecord.candidateId ??
+        candidateRecord.ngoId,
+      "",
+    );
+    const name = asString(
+      nestedCandidate.name ??
+        nestedCandidate.candidateName ??
+        nestedCandidate.ngoName ??
+        candidateRecord.name ??
+        candidateRecord.candidateName ??
+        candidateRecord.ngoName,
+      "",
+    ).toLowerCase();
+    const knownCandidate = knownCandidates.get(id) ?? knownCandidatesByName.get(name);
 
-    if (!knownCandidate || seenCandidateIds.has(id)) {
+    if (!knownCandidate || seenCandidateIds.has(knownCandidate.id)) {
       continue;
     }
 
     rankedCandidates.push({
       ...knownCandidate,
-      score: clampScore(candidateValue.score, knownCandidate.score),
-      factors: normaliseFactors(candidateValue.factors, knownCandidate.factors),
-      reason: asString(candidateValue.reason, knownCandidate.reason),
+      score: clampScore(
+        candidateRecord.score ?? candidateRecord.fitScore ?? nestedCandidate.score,
+        knownCandidate.score,
+      ),
+      factors: normaliseFactors(
+        candidateRecord.factors ?? nestedCandidate.factors,
+        knownCandidate.factors,
+      ),
+      reason: asString(
+        candidateRecord.reason ??
+          candidateRecord.explanation ??
+          nestedCandidate.reason ??
+          nestedCandidate.explanation,
+        knownCandidate.reason,
+      ),
       progressStatus: asString(
-        candidateValue.progressStatus,
+        candidateRecord.progressStatus ?? candidateRecord.status,
         knownCandidate.progressStatus,
       ),
     });
-    seenCandidateIds.add(id);
+    seenCandidateIds.add(knownCandidate.id);
   }
 
   if (rankedCandidates.length === 0) {
@@ -706,9 +855,9 @@ const normaliseMatchRankResponse = (
 
   return {
     candidates: rankedCandidates,
-    aiSummary: asString(value.aiSummary, fallback.aiSummary),
+    aiSummary: asString(value.aiSummary ?? value.summary, fallback.aiSummary),
     ngoFitExplanation: asString(
-      value.ngoFitExplanation,
+      value.ngoFitExplanation ?? value.fitExplanation ?? value.explanation,
       fallback.ngoFitExplanation,
     ),
     handlingNotes: asString(value.handlingNotes, fallback.handlingNotes),
@@ -808,13 +957,16 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
           sendJson(
             devResponse,
             200,
-            fallbackIntakeResponse(payload.scenario, "No local API key was configured."),
+            fallbackIntakeResponse(
+              payload.scenario,
+              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+            ),
           );
           return;
         }
 
         try {
-          const result = await requestOpenRouterContent({
+          const result = await requestNormalisedOpenRouterJson({
             apiKey,
             model,
             temperature: 0.18,
@@ -833,40 +985,27 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
                 }),
               },
             ],
+            normalise: (value) =>
+              normaliseIntakeResponse(value, payload.scenario, model),
+            invalidDetail:
+              "Live FoodLoop AI returned an incomplete response; using fallback demo data.",
           });
-
-          if (!result.ok) {
-            sendJson(
-              devResponse,
-              200,
-              fallbackIntakeResponse(
-                payload.scenario,
-                `OpenRouter returned ${result.status}.`,
-              ),
-            );
-            return;
-          }
-
-          const parsed = normaliseIntakeResponse(
-            parseAgentJson(result.content),
-            payload.scenario,
-            model,
-          );
 
           sendJson(
             devResponse,
             200,
-            parsed ??
-              fallbackIntakeResponse(
-                payload.scenario,
-                "OpenRouter response could not be validated.",
-              ),
+            result.ok
+              ? result.response
+              : fallbackIntakeResponse(payload.scenario, result.detail),
           );
         } catch {
           sendJson(
             devResponse,
             200,
-            fallbackIntakeResponse(payload.scenario, "OpenRouter request failed."),
+            fallbackIntakeResponse(
+              payload.scenario,
+              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+            ),
           );
         }
       });
@@ -900,13 +1039,16 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
           sendJson(
             devResponse,
             200,
-            fallbackMatchRankResponse(payload, "No local API key was configured."),
+            fallbackMatchRankResponse(
+              payload,
+              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+            ),
           );
           return;
         }
 
         try {
-          const result = await requestOpenRouterContent({
+          const result = await requestNormalisedOpenRouterJson({
             apiKey,
             model,
             temperature: 0.2,
@@ -914,7 +1056,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
               {
                 role: "system",
                 content:
-                  "You are FoodLoop's Matching Agent. Return only valid JSON with candidates, aiSummary, ngoFitExplanation, handlingNotes, and routePreview. You may only rank candidate IDs supplied by the user. Do not invent NGOs, workflow states, safety verdicts, or unsafe labels. Scores and factor values must be integers from 0 to 100.",
+                  "You are FoodLoop's Matching Agent. Return only valid JSON with candidates, aiSummary, ngoFitExplanation, handlingNotes, and routePreview. candidates must be an array of objects, and every object must include the exact id from allowedCandidateIds. You may only rank candidate IDs supplied by the user. Do not invent NGOs, workflow states, safety verdicts, or unsafe labels. Scores and factor values must be integers from 0 to 100.",
               },
               {
                 role: "user",
@@ -922,7 +1064,15 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
                   task:
                     "Rank the known NGO candidates for this donor-confirmed batch.",
                   batchDraft: payload.batchDraft,
-                  scenario: payload.scenario,
+                  scenario: payload.scenario
+                    ? {
+                        id: payload.scenario.id,
+                        title: payload.scenario.title,
+                        donorName: payload.scenario.donorName,
+                        location: payload.scenario.location,
+                        categoryHint: payload.scenario.categoryHint,
+                      }
+                    : undefined,
                   allowedCandidateIds: cloneCandidatePool(payload.candidatePool).map(
                     (candidate) => candidate.id,
                   ),
@@ -930,40 +1080,27 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
                 }),
               },
             ],
+            normalise: (value) =>
+              normaliseMatchRankResponse(value, payload, model),
+            invalidDetail:
+              "Live FoodLoop AI returned an incomplete ranking; using fallback demo data.",
           });
-
-          if (!result.ok) {
-            sendJson(
-              devResponse,
-              200,
-              fallbackMatchRankResponse(
-                payload,
-                `OpenRouter returned ${result.status}.`,
-              ),
-            );
-            return;
-          }
-
-          const parsed = normaliseMatchRankResponse(
-            parseAgentJson(result.content),
-            payload,
-            model,
-          );
 
           sendJson(
             devResponse,
             200,
-            parsed ??
-              fallbackMatchRankResponse(
-                payload,
-                "OpenRouter ranking could not be validated.",
-              ),
+            result.ok
+              ? result.response
+              : fallbackMatchRankResponse(payload, result.detail),
           );
         } catch {
           sendJson(
             devResponse,
             200,
-            fallbackMatchRankResponse(payload, "OpenRouter request failed."),
+            fallbackMatchRankResponse(
+              payload,
+              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+            ),
           );
         }
       });
@@ -994,13 +1131,16 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
           sendJson(
             devResponse,
             200,
-            fallbackResponse(action, "No local API key was configured."),
+            fallbackResponse(
+              action,
+              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+            ),
           );
           return;
         }
 
         try {
-          const result = await requestOpenRouterContent({
+          const result = await requestNormalisedOpenRouterJson({
             apiKey,
             model,
             temperature: 0.25,
@@ -1021,34 +1161,24 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
                 }),
               },
             ],
+            normalise: (value) => normaliseModalResponse(value, action, model),
+            invalidDetail:
+              "Live FoodLoop AI returned an incomplete draft; using fallback demo data.",
           });
-
-          if (!result.ok) {
-            sendJson(
-              devResponse,
-              200,
-              fallbackResponse(action, `OpenRouter returned ${result.status}.`),
-            );
-            return;
-          }
-
-          const parsed = normaliseModalResponse(
-            parseAgentJson(result.content),
-            action,
-            model,
-          );
 
           sendJson(
             devResponse,
             200,
-            parsed ??
-              fallbackResponse(action, "OpenRouter response could not be parsed."),
+            result.ok ? result.response : fallbackResponse(action, result.detail),
           );
         } catch {
           sendJson(
             devResponse,
             200,
-            fallbackResponse(action, "OpenRouter request failed."),
+            fallbackResponse(
+              action,
+              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+            ),
           );
         }
       });
@@ -1077,13 +1207,15 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
           sendJson(
             devResponse,
             200,
-            fallbackImpactAgentResponse("No local API key was configured."),
+            fallbackImpactAgentResponse(
+              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+            ),
           );
           return;
         }
 
         try {
-          const result = await requestOpenRouterContent({
+          const result = await requestNormalisedOpenRouterJson({
             apiKey,
             model,
             temperature: 0.22,
@@ -1102,32 +1234,25 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
                 }),
               },
             ],
+            normalise: (value) => normaliseImpactResponse(value, model),
+            invalidDetail:
+              "Live FoodLoop AI returned an incomplete impact summary; using fallback demo data.",
           });
-
-          if (!result.ok) {
-            sendJson(
-              devResponse,
-              200,
-              fallbackImpactAgentResponse(`OpenRouter returned ${result.status}.`),
-            );
-            return;
-          }
-
-          const parsed = normaliseImpactResponse(parseAgentJson(result.content), model);
 
           sendJson(
             devResponse,
             200,
-            parsed ??
-              fallbackImpactAgentResponse(
-                "OpenRouter impact summary could not be validated.",
-              ),
+            result.ok
+              ? result.response
+              : fallbackImpactAgentResponse(result.detail),
           );
         } catch {
           sendJson(
             devResponse,
             200,
-            fallbackImpactAgentResponse("OpenRouter request failed."),
+            fallbackImpactAgentResponse(
+              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+            ),
           );
         }
       });

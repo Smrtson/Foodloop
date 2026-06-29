@@ -129,6 +129,8 @@ const itemDescriptionPresets = [
 ];
 
 const minimumAgentDelayMs = 650;
+const liveAgentRequestAttempts = 3;
+const liveAgentRetryDelayMs = 900;
 
 const wait = (durationMs: number) =>
   new Promise((resolve) => {
@@ -136,7 +138,7 @@ const wait = (durationMs: number) =>
   });
 
 const sourceLabel = (source?: AISource | null) =>
-  source === "openrouter" ? "Live LLM" : "Fallback demo data";
+  source === "openrouter" ? "Live FoodLoop AI" : "Fallback demo data";
 
 const getScenarioFallbackIntake = (
   scenario: PhotoScenario,
@@ -187,59 +189,90 @@ const normaliseIntakeResponse = (
 async function requestIntakeDraft(
   scenario: PhotoScenario,
 ): Promise<IntakeAgentResponse> {
-  const response = await fetch("/api/intake-agent", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ scenario }),
-  });
+  let fallbackResult: IntakeAgentResponse | null = null;
 
-  if (!response.ok) {
-    throw new Error(`Intake agent returned ${response.status}`);
+  for (let attempt = 0; attempt < liveAgentRequestAttempts; attempt += 1) {
+    const response = await fetch("/api/intake-agent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ scenario }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Intake agent returned ${response.status}`);
+    }
+
+    const result = normaliseIntakeResponse(
+      (await response.json()) as Partial<IntakeAgentResponse>,
+      scenario,
+    );
+
+    if (result.source === "openrouter") {
+      return result;
+    }
+
+    fallbackResult = result;
+
+    if (attempt < liveAgentRequestAttempts - 1) {
+      await wait(liveAgentRetryDelayMs);
+    }
   }
 
-  return normaliseIntakeResponse(
-    (await response.json()) as Partial<IntakeAgentResponse>,
-    scenario,
-  );
+  return fallbackResult ?? getScenarioFallbackIntake(scenario);
 }
 
 async function requestMatchRanking(
   scenario: PhotoScenario,
   draft: BatchDraft,
 ): Promise<MatchRankAgentResponse> {
-  const response = await fetch("/api/match-rank-agent", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      scenario,
-      batchDraft: draft,
-      candidatePool: getCandidatePoolForScenario(scenario.id),
-    }),
-  });
+  const fallback = buildFallbackMatchRankResponse(scenario.id, draft);
+  let fallbackResult: MatchRankAgentResponse | null = null;
 
-  if (!response.ok) {
-    throw new Error(`Match ranking agent returned ${response.status}`);
+  for (let attempt = 0; attempt < liveAgentRequestAttempts; attempt += 1) {
+    const response = await fetch("/api/match-rank-agent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        scenario,
+        batchDraft: draft,
+        candidatePool: getCandidatePoolForScenario(scenario.id),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Match ranking agent returned ${response.status}`);
+    }
+
+    const value = (await response.json()) as Partial<MatchRankAgentResponse>;
+    const result: MatchRankAgentResponse = {
+      candidates:
+        Array.isArray(value.candidates) && value.candidates.length > 0
+          ? value.candidates
+          : fallback.candidates,
+      aiSummary: value.aiSummary || fallback.aiSummary,
+      ngoFitExplanation: value.ngoFitExplanation || fallback.ngoFitExplanation,
+      handlingNotes: value.handlingNotes || fallback.handlingNotes,
+      routePreview: value.routePreview || fallback.routePreview,
+      source: value.source === "openrouter" ? "openrouter" : "fallback",
+      model: value.model,
+    };
+
+    if (result.source === "openrouter") {
+      return result;
+    }
+
+    fallbackResult = result;
+
+    if (attempt < liveAgentRequestAttempts - 1) {
+      await wait(liveAgentRetryDelayMs);
+    }
   }
 
-  const value = (await response.json()) as Partial<MatchRankAgentResponse>;
-  const fallback = buildFallbackMatchRankResponse(scenario.id, draft);
-
-  return {
-    candidates:
-      Array.isArray(value.candidates) && value.candidates.length > 0
-        ? value.candidates
-        : fallback.candidates,
-    aiSummary: value.aiSummary || fallback.aiSummary,
-    ngoFitExplanation: value.ngoFitExplanation || fallback.ngoFitExplanation,
-    handlingNotes: value.handlingNotes || fallback.handlingNotes,
-    routePreview: value.routePreview || fallback.routePreview,
-    source: value.source === "openrouter" ? "openrouter" : "fallback",
-    model: value.model,
-  };
+  return fallbackResult ?? fallback;
 }
 
 const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
@@ -672,7 +705,10 @@ function DonorIntakePage({
     } catch {
       await wait(minimumAgentDelayMs);
       finishAnalyze(
-        getScenarioFallbackIntake(scenario, "The local intake agent was unavailable."),
+        getScenarioFallbackIntake(
+          scenario,
+          "Live FoodLoop AI was unavailable, so fallback demo data prepared this draft.",
+        ),
       );
     }
   };
@@ -792,7 +828,7 @@ function DonorIntakePage({
           <p className="page-kicker">Wan Chai donor workflow</p>
           <h1 id="intake-title">Donor Intake</h1>
           <p>
-            Choose a surplus photo, review the AI draft, and submit a confirmed
+            Choose a surplus photo, review the FoodLoop AI draft, and submit a confirmed
             batch for matching.
           </p>
         </div>
@@ -1124,7 +1160,7 @@ function ReviewStagePanel({
         <PanelTitle
           id="review-form-title"
           icon={Bot}
-          title="Edit AI intake draft"
+          title="Edit FoodLoop AI draft"
           actionText={
             isDrafted
               ? `${recommendation.confidence}% draft confidence`
@@ -1832,7 +1868,7 @@ function SourceBadge({
   return (
     <span
       className={isLive ? "source-badge source-badge-live" : "source-badge"}
-      title={isLive && model ? `OpenRouter model: ${model}` : undefined}
+      title={isLive && model ? `Live FoodLoop AI via OpenRouter (${model})` : undefined}
     >
       {sourceLabel(source)}
     </span>

@@ -113,7 +113,7 @@ export const analyzedDraft: BatchDraft = {
 };
 
 export const agentRecommendation: AgentRecommendation = {
-  agentName: "AI Intake Agent",
+  agentName: "FoodLoop Intake AI",
   confidence: 86,
   extractedCategory: "Bakery surplus",
   extractedQuantity: "118 items",
@@ -123,7 +123,7 @@ export const agentRecommendation: AgentRecommendation = {
   requiredConfirmation: "Donor confirms category, quantity, and pickup window.",
   handlingPriority: "Low handling risk",
   summary:
-    "AI drafted a structured batch from the photo and Wan Chai donor pattern. It is decision support only.",
+    "FoodLoop AI drafted a structured batch from the photo and Wan Chai donor pattern. It is decision support only.",
 };
 
 export const forecastSummary: ForecastSummary = {
@@ -179,7 +179,7 @@ const sandwichDraft: BatchDraft = {
 };
 
 const sandwichRecommendation: AgentRecommendation = {
-  agentName: "AI Intake Agent",
+  agentName: "FoodLoop Intake AI",
   confidence: 84,
   extractedCategory: "Chilled ready-to-eat",
   extractedQuantity: "64 packs",
@@ -190,7 +190,7 @@ const sandwichRecommendation: AgentRecommendation = {
     "Donor confirms count, chilled holding, and pickup contact before matching.",
   handlingPriority: "Short window",
   summary:
-    "AI drafted a chilled ready-to-eat batch from the photo. It is a handling recommendation only.",
+    "FoodLoop AI drafted a chilled ready-to-eat batch from the photo. It is a handling recommendation only.",
 };
 
 const sandwichForecast: ForecastSummary = {
@@ -246,7 +246,7 @@ const fruitDraft: BatchDraft = {
 };
 
 const fruitRecommendation: AgentRecommendation = {
-  agentName: "AI Intake Agent",
+  agentName: "FoodLoop Intake AI",
   confidence: 81,
   extractedCategory: "Fresh produce",
   extractedQuantity: "36 boxes",
@@ -257,7 +257,7 @@ const fruitRecommendation: AgentRecommendation = {
     "Donor confirms box count, ripeness notes, and sorting expectations.",
   handlingPriority: "Needs confirmation",
   summary:
-    "AI drafted a produce batch from the photo and flagged quality notes for human review.",
+    "FoodLoop AI drafted a produce batch from the photo and flagged quality notes for human review.",
 };
 
 const fruitForecast: ForecastSummary = {
@@ -328,7 +328,7 @@ export const impactRouteTimeSaved: ImpactSeriesDatum[] = [
 ];
 
 export const impactAgentSummary: ImpactAgentSummary = {
-  title: "AI Impact Agent summary",
+  title: "FoodLoop impact summary",
   intro:
     "FoodLoop converted the confirmed handoff into an impact story across rescue volume, community value, ESG reporting, and operational efficiency.",
   points: [
@@ -771,7 +771,7 @@ export const buildFallbackMatchRankResponse = (
       draft.itemDescription || template.itemDescription
     }, using compatibility, demand, distance, capacity, and urgency fit.`,
     ngoFitExplanation:
-      "The fallback ranking keeps the known demo candidate pool and explains fit without adding unverified recipient records.",
+      "Fallback demo data keeps the known demo candidate pool and explains fit without adding unverified recipient records.",
     handlingNotes:
       draft.handlingPriority === "Short window"
         ? "Pickup should be accepted by a nearby recipient with capacity inside the donor window."
@@ -829,7 +829,7 @@ export function buildGeneratedBatchFromDraft({
     ngoFitExplanation:
       matchResponse.ngoFitExplanation || template.ngoFitExplanation,
     donorStatus:
-      "Submitted from AI intake. FoodLoop ranked known recipient partners and is waiting for NGO action.",
+      "Submitted from FoodLoop AI intake. FoodLoop ranked known recipient partners and is waiting for NGO action.",
     routePreview: matchResponse.routePreview || template.routePreview,
     selectedCandidateId: selectedCandidate.id,
     candidates,
@@ -1100,7 +1100,7 @@ export function buildRoutePlanFromMatch(
       {
         id: "matched",
         label: "Matched",
-        time: "AI ranked",
+        time: "FoodLoop AI ranked",
         note: `${candidate.name} selected as the recommended NGO at ${candidate.score}% fit.`,
         status: "done",
       },
@@ -1148,7 +1148,7 @@ export const fallbackAIModalCopy: Record<
 > = {
   "request-info": {
     title: "Information request draft",
-    intro: "Fallback demo copy generated without a live AI response.",
+    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
     message:
       "Please confirm the final count, pickup contact, holding location, and any packaging notes before the recipient accepts this batch.",
     nextSteps: [
@@ -1157,11 +1157,11 @@ export const fallbackAIModalCopy: Record<
       "Refresh the match recommendation after the donor replies.",
     ],
     confidenceNote:
-      "This text is canned for the local demo. Add OPENROUTER_API_KEY for live generated wording.",
+      "Live FoodLoop AI did not return a usable draft for this action.",
   },
   decline: {
     title: "Decline and reroute note",
-    intro: "Fallback demo copy generated without a live AI response.",
+    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
     message:
       "Thank you for reviewing this opportunity. We cannot accept the current batch window, so FoodLoop should offer it to the next matched recipient.",
     nextSteps: [
@@ -1170,7 +1170,7 @@ export const fallbackAIModalCopy: Record<
       "Notify the donor only after a new recipient is selected.",
     ],
     confidenceNote:
-      "This text is canned for the local demo. Add OPENROUTER_API_KEY for live generated wording.",
+      "Live FoodLoop AI did not return a usable draft for this action.",
   },
 };
 
@@ -1188,7 +1188,7 @@ export const stubContent: Record<
       "This stub will become the ranked NGO opportunity queue with explainable match scoring.",
     cards: [
       {
-        label: "AI Matching Agent",
+        label: "FoodLoop Matching AI",
         value: "Ranks by demand, distance, capacity, and compatibility",
         note: "NGO confirms before accepting a batch.",
       },
@@ -1237,7 +1237,7 @@ export const stubContent: Record<
         note: "Green metrics show FoodLoop impact.",
       },
       {
-        label: "Impact Agent",
+        label: "FoodLoop Impact AI",
         value: "Report-ready summary draft",
         note: "Human review remains part of reporting.",
       },
@@ -1249,7 +1249,7 @@ export const stubContent: Record<
     ],
   },
   architecture: {
-    title: "Architecture And AI Agents",
+    title: "Architecture And FoodLoop AI",
     summary:
       "This stub will explain the full demo system from donor intake through impact reporting.",
     cards: [
