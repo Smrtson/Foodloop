@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   impactAgentSummary,
@@ -29,6 +29,7 @@ import {
 } from "./data";
 import type {
   AcceptedRouteMatch,
+  ImpactAgentSummary,
   ImpactCumulativeTrendDatum,
   ImpactMetricDefinition,
   ImpactMetricKey,
@@ -40,6 +41,8 @@ interface SharedImpactPageProps {
   activeRole: Role;
   acceptedRouteMatch: AcceptedRouteMatch | null;
   isReceiptConfirmed: boolean;
+  impactSummary?: ImpactAgentSummary;
+  onImpactSummaryResolved: (batchId: string, summary: ImpactAgentSummary) => void;
 }
 
 interface CurrentPickupImpact {
@@ -87,11 +90,69 @@ function formatMetricValue(value: number, metric: ImpactMetricDefinition) {
   return `${numberFormatter.format(Math.round(value))} ${metric.unit}`;
 }
 
+function normaliseImpactSummary(
+  value: Partial<ImpactAgentSummary>,
+): ImpactAgentSummary {
+  return {
+    title: value.title || impactAgentSummary.title,
+    intro: value.intro || impactAgentSummary.intro,
+    points:
+      Array.isArray(value.points) && value.points.length > 0
+        ? value.points.filter(Boolean).slice(0, 4)
+        : impactAgentSummary.points,
+    caveat: value.caveat || impactAgentSummary.caveat,
+    source: value.source === "openrouter" ? "openrouter" : "fallback",
+    model: value.model,
+  };
+}
+
+async function requestImpactSummary(
+  acceptedRouteMatch: AcceptedRouteMatch,
+  currentImpact: CurrentPickupImpact,
+) {
+  const response = await fetch("/api/impact-agent", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      batch: {
+        id: acceptedRouteMatch.batch.id,
+        title: acceptedRouteMatch.batch.title,
+        donorName: acceptedRouteMatch.batch.donorName,
+        itemDescription: acceptedRouteMatch.batch.itemDescription,
+        quantityLabel: acceptedRouteMatch.batch.quantityLabel,
+        handlingPriority: acceptedRouteMatch.batch.handlingPriority,
+      },
+      candidate: {
+        id: acceptedRouteMatch.candidate.id,
+        name: acceptedRouteMatch.candidate.name,
+        district: acceptedRouteMatch.candidate.district,
+      },
+      currentImpact,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Impact agent returned ${response.status}`);
+  }
+
+  return normaliseImpactSummary(
+    (await response.json()) as Partial<ImpactAgentSummary>,
+  );
+}
+
 export function SharedImpactPage({
   activeRole,
   acceptedRouteMatch,
   isReceiptConfirmed,
+  impactSummary,
+  onImpactSummaryResolved,
 }: SharedImpactPageProps) {
+  const [loadingSummaryBatchId, setLoadingSummaryBatchId] = useState<string | null>(
+    null,
+  );
+  const requestedSummaryBatchIds = useRef<Set<string>>(new Set());
   const currentImpact = useMemo(
     () =>
       acceptedRouteMatch
@@ -99,6 +160,45 @@ export function SharedImpactPage({
         : null,
     [acceptedRouteMatch],
   );
+
+  useEffect(() => {
+    if (
+      !acceptedRouteMatch ||
+      !currentImpact ||
+      !isReceiptConfirmed ||
+      impactSummary ||
+      requestedSummaryBatchIds.current.has(acceptedRouteMatch.batch.id)
+    ) {
+      return;
+    }
+
+    const batchId = acceptedRouteMatch.batch.id;
+    requestedSummaryBatchIds.current.add(batchId);
+    setLoadingSummaryBatchId(batchId);
+
+    requestImpactSummary(acceptedRouteMatch, currentImpact)
+      .then((summary) => {
+        onImpactSummaryResolved(batchId, summary);
+      })
+      .catch(() => {
+        onImpactSummaryResolved(batchId, {
+          ...impactAgentSummary,
+          caveat: `${impactAgentSummary.caveat} The local impact agent was unavailable.`,
+          source: "fallback",
+        });
+      })
+      .finally(() => {
+        setLoadingSummaryBatchId((current) =>
+          current === batchId ? null : current,
+        );
+      });
+  }, [
+    acceptedRouteMatch,
+    currentImpact,
+    impactSummary,
+    isReceiptConfirmed,
+    onImpactSummaryResolved,
+  ]);
 
   if (!acceptedRouteMatch || !currentImpact) {
     return (
@@ -114,6 +214,8 @@ export function SharedImpactPage({
   }
 
   const { batch, candidate } = acceptedRouteMatch;
+  const activeImpactSummary = impactSummary ?? impactAgentSummary;
+  const isGeneratingImpactSummary = loadingSummaryBatchId === batch.id;
 
   if (!isReceiptConfirmed) {
     return (
@@ -152,17 +254,27 @@ export function SharedImpactPage({
           <ImpactPanelHeading
             id="impact-agent-title"
             icon={Bot}
-            title={impactAgentSummary.title}
-            meta="Executive summary"
+            title={activeImpactSummary.title}
+            meta={
+              isGeneratingImpactSummary
+                ? "Generating"
+                : activeImpactSummary.source === "openrouter"
+                  ? "Live LLM"
+                  : "Fallback demo data"
+            }
           />
 
           <div className="impact-agent-callout">
             <Sparkles size={18} aria-hidden="true" />
-            <p>{impactAgentSummary.intro}</p>
+            <p>
+              {isGeneratingImpactSummary
+                ? "FoodLoop is generating a receipt-level impact summary for the confirmed handoff."
+                : activeImpactSummary.intro}
+            </p>
           </div>
 
           <ul className="impact-agent-points">
-            {impactAgentSummary.points.map((point) => (
+            {activeImpactSummary.points.map((point) => (
               <li key={point}>
                 <CheckCircle2 size={15} aria-hidden="true" />
                 <span>{point}</span>
@@ -172,7 +284,12 @@ export function SharedImpactPage({
 
           <div className="impact-agent-caveat">
             <span>Measurement note</span>
-            <p>{impactAgentSummary.caveat}</p>
+            <p>
+              {activeImpactSummary.caveat}
+              {activeImpactSummary.source === "openrouter" && activeImpactSummary.model
+                ? ` Generated with OpenRouter (${activeImpactSummary.model}).`
+                : ""}
+            </p>
           </div>
         </section>
 

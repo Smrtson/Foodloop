@@ -21,8 +21,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { fallbackAIModalCopy, matchQueueBatches } from "./data";
+import { fallbackAIModalCopy } from "./data";
 import type {
+  AISource,
   AIModalAction,
   AIModalRequest,
   AIModalResponse,
@@ -58,6 +59,7 @@ type ModalState =
 
 interface NGOMatchQueuePageProps {
   activeRole: Role;
+  batches: MatchQueueBatch[];
   selectedBatchId: string;
   actionStates: Record<string, MatchActionState>;
   onSelectBatch: (batchId: string) => void;
@@ -174,6 +176,7 @@ async function requestAgentCopy(
 
 export function NGOMatchQueuePage({
   activeRole,
+  batches,
   selectedBatchId,
   actionStates,
   onSelectBatch,
@@ -182,10 +185,13 @@ export function NGOMatchQueuePage({
   const [modal, setModal] = useState<ModalState | null>(null);
 
   const selectedBatch =
-    matchQueueBatches.find((batch) => batch.id === selectedBatchId) ??
-    matchQueueBatches[0];
+    batches.find((batch) => batch.id === selectedBatchId) ?? batches[0];
   const selectedCandidate = getSelectedCandidate(selectedBatch);
   const actionState = actionStates[selectedBatch.id] ?? "idle";
+  const candidateCount = useMemo(
+    () => new Set(batches.flatMap((batch) => batch.candidates.map((candidate) => candidate.id))).size,
+    [batches],
+  );
 
   const acceptedCount = useMemo(
     () =>
@@ -251,13 +257,13 @@ export function NGOMatchQueuePage({
         <OverviewMetric
           icon={PackageCheck}
           label="Open batches"
-          value={`${matchQueueBatches.length}`}
+          value={`${batches.length}`}
           note="Ready for review"
         />
         <OverviewMetric
           icon={Users}
           label="Candidate NGOs"
-          value="9"
+          value={`${candidateCount}`}
           note="Fictional demo partners"
         />
         <OverviewMetric
@@ -271,6 +277,7 @@ export function NGOMatchQueuePage({
       <div className="match-workspace-grid">
         <BatchQueue
           activeRole={activeRole}
+          batches={batches}
           selectedBatchId={selectedBatch.id}
           actionStates={actionStates}
           onSelectBatch={onSelectBatch}
@@ -336,11 +343,13 @@ function OverviewMetric({
 
 function BatchQueue({
   activeRole,
+  batches,
   selectedBatchId,
   actionStates,
   onSelectBatch,
 }: {
   activeRole: Role;
+  batches: MatchQueueBatch[];
   selectedBatchId: string;
   actionStates: Record<string, MatchActionState>;
   onSelectBatch: (batchId: string) => void;
@@ -356,11 +365,11 @@ function BatchQueue({
               : "Your submitted records and their recipient progress."}
           </p>
         </div>
-        <span>{matchQueueBatches.length} live</span>
+        <span>{batches.length} live</span>
       </div>
 
       <div className="match-card-list">
-        {matchQueueBatches.map((batch) => {
+        {batches.map((batch) => {
           const isSelected = selectedBatchId === batch.id;
           const state = actionStates[batch.id] ?? "idle";
 
@@ -374,7 +383,11 @@ function BatchQueue({
             >
               <span className="match-card-topline">
                 <strong>{batch.title}</strong>
-                <HandlingBadge priority={batch.handlingPriority} />
+                {batch.aiSource ? (
+                  <MatchSourceBadge source={batch.aiSource} model={batch.aiModel} />
+                ) : (
+                  <HandlingBadge priority={batch.handlingPriority} />
+                )}
               </span>
               <span className="match-card-body">
                 {batch.quantityLabel} from {batch.donorName}
@@ -406,7 +419,11 @@ function NGOBatchDetail({
           <h2 id="batch-detail-title">{batch.title}</h2>
           <p>{batch.aiSummary}</p>
         </div>
-        <HandlingBadge priority={batch.handlingPriority} />
+        {batch.aiSource ? (
+          <MatchSourceBadge source={batch.aiSource} model={batch.aiModel} />
+        ) : (
+          <HandlingBadge priority={batch.handlingPriority} />
+        )}
       </div>
 
       <div className="batch-summary-grid">
@@ -507,7 +524,12 @@ function MatchingAgentPanel({
           <h2 id="agent-panel-title">AI Matching Agent</h2>
           <p>{batch.ngoFitExplanation}</p>
         </div>
-        <span className="agent-score">{candidate.score}% fit</span>
+        <div className="match-agent-meta">
+          {batch.aiSource ? (
+            <MatchSourceBadge source={batch.aiSource} model={batch.aiModel} />
+          ) : null}
+          <span className="agent-score">{candidate.score}% fit</span>
+        </div>
       </div>
 
       <div className="factor-grid" aria-label="Match scoring factors">
@@ -740,6 +762,25 @@ function HandlingBadge({
 }) {
   return (
     <span className={`badge badge-${getHandlingTone(priority)}`}>{priority}</span>
+  );
+}
+
+function MatchSourceBadge({
+  source,
+  model,
+}: {
+  source: AISource;
+  model?: string;
+}) {
+  const isLive = source === "openrouter";
+
+  return (
+    <span
+      className={isLive ? "source-badge source-badge-live" : "source-badge"}
+      title={isLive && model ? `OpenRouter model: ${model}` : undefined}
+    >
+      {isLive ? "Live LLM" : "Fallback demo data"}
+    </span>
   );
 }
 

@@ -1,5 +1,9 @@
 export type Role = "donor" | "ngo";
 
+export type AISource = "openrouter" | "fallback";
+
+export type ScenarioId = "bakery" | "sandwiches" | "fruit";
+
 export type DemoPageId =
   | "intake"
   | "matching"
@@ -55,6 +59,35 @@ export interface SensorEvidence {
   lastReadingAt: string;
 }
 
+export interface PhotoScenario {
+  id: ScenarioId;
+  title: string;
+  cardTitle: string;
+  batchPrefix: string;
+  donorName: string;
+  location: string;
+  photoLabel: string;
+  fileMeta: string;
+  imageSrc: string;
+  imageAlt: string;
+  categoryHint: string;
+  emptyDraft: BatchDraft;
+  fallbackDraft: BatchDraft;
+  fallbackRecommendation: AgentRecommendation;
+  forecast: ForecastSummary;
+  sensorEvidence: SensorEvidence;
+  templateBatchId: string;
+}
+
+export interface IntakeAgentResponse {
+  draft: BatchDraft;
+  recommendation: AgentRecommendation;
+  forecast: ForecastSummary;
+  sensorEvidence: SensorEvidence;
+  source: AISource;
+  model?: string;
+}
+
 export type MatchFactorKey =
   | "compatibility"
   | "demand"
@@ -104,10 +137,23 @@ export interface MatchQueueBatch {
   routePreview: string;
   selectedCandidateId: string;
   candidates: NGOCandidate[];
+  aiSource?: AISource;
+  aiModel?: string;
+  scenarioId?: ScenarioId;
   recipientProgress: Array<{
     label: string;
     status: "done" | "active" | "waiting";
   }>;
+}
+
+export interface MatchRankAgentResponse {
+  candidates: NGOCandidate[];
+  aiSummary: string;
+  ngoFitExplanation: string;
+  handlingNotes: string;
+  routePreview: string;
+  source: AISource;
+  model?: string;
 }
 
 export interface AcceptedRouteMatch {
@@ -243,4 +289,6 @@ export interface ImpactAgentSummary {
   intro: string;
   points: string[];
   caveat: string;
+  source: AISource;
+  model?: string;
 }

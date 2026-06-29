@@ -10,12 +10,18 @@ import type {
   ImpactMetricDefinition,
   ImpactOverallTotals,
   ImpactSeriesDatum,
+  MatchRankAgentResponse,
   MatchQueueBatch,
   NGOCandidate,
+  PhotoScenario,
   RouteCoordinate,
+  ScenarioId,
   SensorEvidence,
   SharedRoutePlan,
 } from "./types";
+import bakeryPhoto from "./assets/wan-chai-bakery-surplus.png";
+import sandwichPhoto from "./assets/chilled-sandwich-surplus.png";
+import fruitPhoto from "./assets/tai-kok-tsui-fruit-boxes.png";
 
 const toDatetimeLocalValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -135,6 +141,140 @@ export const sensorEvidence: SensorEvidence = {
   lastReadingAt: "10:24 AM",
 };
 
+const sandwichEmptyDraft: BatchDraft = {
+  donorName: "Cedar Table Cafe",
+  location: "Hennessy Road, Causeway Bay",
+  category: "",
+  itemDescription: "",
+  quantity: "",
+  unit: "packs",
+  packaging: "",
+  preparedTime: "",
+  pickupDeadline: "",
+  storageLocation: "Chilled display cabinet, Causeway Bay",
+  temperatureStatus: "Chilled, reading required",
+  holdingStatus: "Wrapped packs awaiting pickup",
+  sensorAttachment: "Tag FL-CB-08",
+  handlingPriority: "Needs confirmation",
+  donorNotes: "",
+};
+
+const sandwichDraft: BatchDraft = {
+  donorName: "Cedar Table Cafe",
+  location: "Hennessy Road, Causeway Bay",
+  category: "Chilled ready-to-eat",
+  itemDescription: "Wrapped egg, tuna, and salad sandwiches",
+  quantity: "64",
+  unit: "packs",
+  packaging: "Individually wrapped and labelled",
+  preparedTime: "Today, 8:45 AM",
+  pickupDeadline: todayAt(13, 20),
+  storageLocation: "Chilled display cabinet, Causeway Bay",
+  temperatureStatus: "Chilled, 4.7 C",
+  holdingStatus: "Sealed packs, staff confirms chilled cabinet holding",
+  sensorAttachment: "Tag FL-CB-08 attached",
+  handlingPriority: "Short window",
+  donorNotes:
+    "Please collect with cold bags from the cafe side counter. Donor confirms the record before matching.",
+};
+
+const sandwichRecommendation: AgentRecommendation = {
+  agentName: "AI Intake Agent",
+  confidence: 84,
+  extractedCategory: "Chilled ready-to-eat",
+  extractedQuantity: "64 packs",
+  extractedPackaging: "Individually wrapped packs",
+  preparedTime: "Today, 8:45 AM",
+  pickupDeadline: "Today, 1:20 PM",
+  requiredConfirmation:
+    "Donor confirms count, chilled holding, and pickup contact before matching.",
+  handlingPriority: "Short window",
+  summary:
+    "AI drafted a chilled ready-to-eat batch from the photo. It is a handling recommendation only.",
+};
+
+const sandwichForecast: ForecastSummary = {
+  predictedBand: "55 to 70 sandwich packs",
+  likelyWindow: "Breakfast-to-lunch surplus peak",
+  patternBasis: "Typical weekday cafe batch from Causeway Bay donors",
+  confidence: 74,
+};
+
+const sandwichSensorEvidence: SensorEvidence = {
+  storageLocation: "Chilled display cabinet, Causeway Bay",
+  temperature: "4.7 C chilled",
+  holdingStatus: "Holding stable",
+  sensorAttachment: "Tag FL-CB-08",
+  lastReadingAt: "8:52 AM",
+};
+
+const fruitEmptyDraft: BatchDraft = {
+  donorName: "Tai Kok Tsui Market Stall 18",
+  location: "Fuk Tsun Street, Tai Kok Tsui",
+  category: "",
+  itemDescription: "",
+  quantity: "",
+  unit: "boxes",
+  packaging: "",
+  preparedTime: "",
+  pickupDeadline: "",
+  storageLocation: "Covered stall area, Tai Kok Tsui",
+  temperatureStatus: "Ambient, shaded stall",
+  holdingStatus: "Boxed fruit awaiting pickup",
+  sensorAttachment: "Photo evidence only",
+  handlingPriority: "Needs confirmation",
+  donorNotes: "",
+};
+
+const fruitDraft: BatchDraft = {
+  donorName: "Tai Kok Tsui Market Stall 18",
+  location: "Fuk Tsun Street, Tai Kok Tsui",
+  category: "Fresh produce",
+  itemDescription: "Mixed apple, orange, and pear boxes",
+  quantity: "36",
+  unit: "boxes",
+  packaging: "Stacked cardboard fruit boxes",
+  preparedTime: "Today, 9:30 AM",
+  pickupDeadline: todayAt(17, 30),
+  storageLocation: "Covered stall area, Tai Kok Tsui",
+  temperatureStatus: "Ambient, shaded stall",
+  holdingStatus: "Covered boxes with mixed ripeness noted",
+  sensorAttachment: "Photo evidence attached",
+  handlingPriority: "Needs confirmation",
+  donorNotes:
+    "Please confirm visible bruising and whether partial acceptance is useful for sorting.",
+};
+
+const fruitRecommendation: AgentRecommendation = {
+  agentName: "AI Intake Agent",
+  confidence: 81,
+  extractedCategory: "Fresh produce",
+  extractedQuantity: "36 boxes",
+  extractedPackaging: "Stacked cardboard boxes",
+  preparedTime: "Today, 9:30 AM",
+  pickupDeadline: "Today, 5:30 PM",
+  requiredConfirmation:
+    "Donor confirms box count, ripeness notes, and sorting expectations.",
+  handlingPriority: "Needs confirmation",
+  summary:
+    "AI drafted a produce batch from the photo and flagged quality notes for human review.",
+};
+
+const fruitForecast: ForecastSummary = {
+  predictedBand: "30 to 40 fruit boxes",
+  likelyWindow: "Late morning market stall surplus",
+  patternBasis: "Typical produce handoff pattern for Tai Kok Tsui donors",
+  confidence: 72,
+};
+
+const fruitSensorEvidence: SensorEvidence = {
+  storageLocation: "Covered stall area, Tai Kok Tsui",
+  temperature: "Ambient, shaded",
+  holdingStatus: "Covered and ready for sorting",
+  sensorAttachment: "Photo evidence only",
+  lastReadingAt: "9:34 AM",
+};
+
 export const impactOverallTotals: ImpactOverallTotals = {
   foodRescuedKg: 680,
   mealEquivalents: 1240,
@@ -198,6 +338,7 @@ export const impactAgentSummary: ImpactAgentSummary = {
   ],
   caveat:
     "All current-pickup impact values use deterministic demo formulas for pitch clarity.",
+  source: "fallback",
 };
 
 export const ngoPreviewRows = [
@@ -499,6 +640,210 @@ export const matchQueueBatches: MatchQueueBatch[] = [
     ],
   },
 ];
+
+export const photoScenarios: PhotoScenario[] = [
+  {
+    id: "bakery",
+    title: "Wan Chai bakery surplus",
+    cardTitle: "Bakery",
+    batchPrefix: "WC",
+    donorName: emptyDraft.donorName,
+    location: emptyDraft.location,
+    photoLabel: "Wan Chai bakery photo",
+    fileMeta: "PNG, local asset",
+    imageSrc: bakeryPhoto,
+    imageAlt: "Sealed bakery surplus in green crates at a Wan Chai bakery counter",
+    categoryHint: "Bakery surplus",
+    emptyDraft,
+    fallbackDraft: analyzedDraft,
+    fallbackRecommendation: agentRecommendation,
+    forecast: forecastSummary,
+    sensorEvidence,
+    templateBatchId: "FL-WC-0625-014",
+  },
+  {
+    id: "sandwiches",
+    title: "Causeway Bay chilled sandwiches",
+    cardTitle: "Sandwiches",
+    batchPrefix: "CB",
+    donorName: sandwichEmptyDraft.donorName,
+    location: sandwichEmptyDraft.location,
+    photoLabel: "Causeway Bay cafe photo",
+    fileMeta: "PNG, local asset",
+    imageSrc: sandwichPhoto,
+    imageAlt:
+      "Individually wrapped sandwiches stacked in trays beside a chilled cafe display",
+    categoryHint: "Chilled ready-to-eat",
+    emptyDraft: sandwichEmptyDraft,
+    fallbackDraft: sandwichDraft,
+    fallbackRecommendation: sandwichRecommendation,
+    forecast: sandwichForecast,
+    sensorEvidence: sandwichSensorEvidence,
+    templateBatchId: "FL-CT-0625-022",
+  },
+  {
+    id: "fruit",
+    title: "Tai Kok Tsui fruit boxes",
+    cardTitle: "Fruit",
+    batchPrefix: "TK",
+    donorName: fruitEmptyDraft.donorName,
+    location: fruitEmptyDraft.location,
+    photoLabel: "Tai Kok Tsui market photo",
+    fileMeta: "PNG, local asset",
+    imageSrc: fruitPhoto,
+    imageAlt: "Mixed apples, oranges, and pears stacked in cardboard fruit boxes",
+    categoryHint: "Fresh produce",
+    emptyDraft: fruitEmptyDraft,
+    fallbackDraft: fruitDraft,
+    fallbackRecommendation: fruitRecommendation,
+    forecast: fruitForecast,
+    sensorEvidence: fruitSensorEvidence,
+    templateBatchId: "FL-TK-0625-031",
+  },
+];
+
+export const getPhotoScenario = (scenarioId: ScenarioId) =>
+  photoScenarios.find((scenario) => scenario.id === scenarioId) ??
+  photoScenarios[0];
+
+export const getTemplateBatchForScenario = (scenarioId: ScenarioId) => {
+  const scenario = getPhotoScenario(scenarioId);
+
+  return (
+    matchQueueBatches.find((batch) => batch.id === scenario.templateBatchId) ??
+    matchQueueBatches[0]
+  );
+};
+
+export const getCandidatePoolForScenario = (scenarioId: ScenarioId) =>
+  getTemplateBatchForScenario(scenarioId).candidates.map((candidate) => ({
+    ...candidate,
+    factors: { ...candidate.factors },
+  }));
+
+const queueDatetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+const formatQueueDeadline = (value: string) => {
+  if (!queueDatetimeLocalPattern.test(value)) {
+    return value;
+  }
+
+  const deadline = new Date(value);
+
+  if (Number.isNaN(deadline.getTime())) {
+    return value;
+  }
+
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(deadline);
+  const today = new Date();
+
+  if (
+    deadline.getFullYear() === today.getFullYear() &&
+    deadline.getMonth() === today.getMonth() &&
+    deadline.getDate() === today.getDate()
+  ) {
+    return `Today, ${timeLabel}`;
+  }
+
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(deadline);
+
+  return `${dateLabel}, ${timeLabel}`;
+};
+
+export const buildFallbackMatchRankResponse = (
+  scenarioId: ScenarioId,
+  draft: BatchDraft,
+): MatchRankAgentResponse => {
+  const template = getTemplateBatchForScenario(scenarioId);
+  const quantityLabel = draft.quantity
+    ? `${draft.quantity} ${draft.unit}`
+    : template.quantityLabel;
+
+  return {
+    candidates: getCandidatePoolForScenario(scenarioId),
+    aiSummary: `FoodLoop ranked known recipient partners for ${quantityLabel} of ${
+      draft.itemDescription || template.itemDescription
+    }, using compatibility, demand, distance, capacity, and urgency fit.`,
+    ngoFitExplanation:
+      "The fallback ranking keeps the known demo candidate pool and explains fit without adding unverified recipient records.",
+    handlingNotes:
+      draft.handlingPriority === "Short window"
+        ? "Pickup should be accepted by a nearby recipient with capacity inside the donor window."
+        : draft.handlingPriority === "Needs confirmation"
+          ? "Recipient should confirm count, handoff notes, and any quality observations before acceptance."
+          : "Packaging and pickup timing look operationally straightforward, pending human confirmation.",
+    routePreview: template.routePreview,
+    source: "fallback",
+  };
+};
+
+export function buildGeneratedBatchFromDraft({
+  scenario,
+  draft,
+  matchResponse,
+  sequence,
+}: {
+  scenario: PhotoScenario;
+  draft: BatchDraft;
+  matchResponse: MatchRankAgentResponse;
+  sequence: number;
+}): MatchQueueBatch {
+  const template = getTemplateBatchForScenario(scenario.id);
+  const candidates =
+    matchResponse.candidates.length > 0
+      ? matchResponse.candidates
+      : getCandidatePoolForScenario(scenario.id);
+  const selectedCandidate = candidates[0] ?? template.candidates[0];
+  const quantityLabel = draft.quantity
+    ? `${draft.quantity} ${draft.unit}`
+    : template.quantityLabel;
+  const pickupDeadline =
+    formatQueueDeadline(draft.pickupDeadline) || template.pickupDeadline;
+  const storageEvidence =
+    [draft.storageLocation, draft.temperatureStatus, draft.holdingStatus]
+      .filter(Boolean)
+      .join(", ") || template.storageEvidence;
+  const batchTitle = draft.category || scenario.categoryHint;
+
+  return {
+    id: `FL-${scenario.batchPrefix}-AI-${String(sequence).padStart(3, "0")}`,
+    title: batchTitle,
+    donorName: draft.donorName || scenario.donorName,
+    donorLocation: draft.location || scenario.location,
+    category: draft.category || scenario.categoryHint,
+    itemDescription: draft.itemDescription || template.itemDescription,
+    quantityLabel,
+    packaging: draft.packaging || template.packaging,
+    preparedTime: draft.preparedTime || template.preparedTime,
+    pickupDeadline,
+    storageEvidence,
+    handlingPriority: draft.handlingPriority,
+    handlingNotes: matchResponse.handlingNotes || template.handlingNotes,
+    aiSummary: matchResponse.aiSummary || template.aiSummary,
+    ngoFitExplanation:
+      matchResponse.ngoFitExplanation || template.ngoFitExplanation,
+    donorStatus:
+      "Submitted from AI intake. FoodLoop ranked known recipient partners and is waiting for NGO action.",
+    routePreview: matchResponse.routePreview || template.routePreview,
+    selectedCandidateId: selectedCandidate.id,
+    candidates,
+    aiSource: matchResponse.source,
+    aiModel: matchResponse.model,
+    scenarioId: scenario.id,
+    recipientProgress: [
+      { label: "Submitted", status: "done" },
+      { label: "Ranked", status: "active" },
+      { label: "Recipient review", status: "waiting" },
+      { label: "Route pending", status: "waiting" },
+    ],
+  };
+}
 
 export const sharedRoutePlan: SharedRoutePlan = {
   id: "ROUTE-WC-014",

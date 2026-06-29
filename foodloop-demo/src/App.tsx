@@ -31,15 +31,14 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import bakeryPhoto from "./assets/wan-chai-bakery-surplus.png";
 import {
-  agentRecommendation,
-  analyzedDraft,
-  emptyDraft,
-  forecastSummary,
+  buildFallbackMatchRankResponse,
+  buildGeneratedBatchFromDraft,
+  getCandidatePoolForScenario,
+  getPhotoScenario,
   matchQueueBatches,
   pageMeta,
-  sensorEvidence,
+  photoScenarios,
   stubContent,
 } from "./data";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
@@ -47,11 +46,21 @@ import { SharedImpactPage } from "./SharedImpactPage";
 import { SharedRoutePage } from "./SharedRoutePage";
 import type {
   AcceptedRouteMatch,
+  AgentRecommendation,
+  AISource,
   BatchDraft,
   DemoPageId,
+  ForecastSummary,
+  ImpactAgentSummary,
+  IntakeAgentResponse,
   IntakeStatus,
   MatchActionState,
+  MatchQueueBatch,
+  MatchRankAgentResponse,
+  PhotoScenario,
   Role,
+  ScenarioId,
+  SensorEvidence,
 } from "./types";
 
 type IntakeStage = "capture" | "review" | "confirm";
@@ -105,15 +114,133 @@ const analysisPhrases = [
 
 const customItemOption = "Other / custom";
 
-const bakeryItemPresets = [
+const itemDescriptionPresets = [
   "Assorted buns, rolls, croissants",
   "Bread boxes",
   "Pastries and muffins",
   "Sandwiches and savouries",
+  "Wrapped egg, tuna, and salad sandwiches",
+  "Chilled ready-to-eat packs",
   "Cakes and slices",
+  "Mixed apple, orange, and pear boxes",
+  "Stacked cardboard fruit boxes",
   "Mixed bakery surplus",
   customItemOption,
 ];
+
+const minimumAgentDelayMs = 650;
+
+const wait = (durationMs: number) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
+
+const sourceLabel = (source?: AISource | null) =>
+  source === "openrouter" ? "Live LLM" : "Fallback demo data";
+
+const getScenarioFallbackIntake = (
+  scenario: PhotoScenario,
+  detail?: string,
+): IntakeAgentResponse => ({
+  draft: scenario.fallbackDraft,
+  recommendation: {
+    ...scenario.fallbackRecommendation,
+    summary: detail
+      ? `${scenario.fallbackRecommendation.summary} ${detail}`
+      : scenario.fallbackRecommendation.summary,
+  },
+  forecast: scenario.forecast,
+  sensorEvidence: scenario.sensorEvidence,
+  source: "fallback",
+});
+
+const normaliseIntakeResponse = (
+  value: Partial<IntakeAgentResponse>,
+  scenario: PhotoScenario,
+): IntakeAgentResponse => ({
+  draft: {
+    ...scenario.fallbackDraft,
+    ...value.draft,
+    handlingPriority:
+      value.draft?.handlingPriority ?? scenario.fallbackDraft.handlingPriority,
+  },
+  recommendation: {
+    ...scenario.fallbackRecommendation,
+    ...value.recommendation,
+    handlingPriority:
+      value.recommendation?.handlingPriority ??
+      value.draft?.handlingPriority ??
+      scenario.fallbackRecommendation.handlingPriority,
+  },
+  forecast: {
+    ...scenario.forecast,
+    ...value.forecast,
+  },
+  sensorEvidence: {
+    ...scenario.sensorEvidence,
+    ...value.sensorEvidence,
+  },
+  source: value.source === "openrouter" ? "openrouter" : "fallback",
+  model: value.model,
+});
+
+async function requestIntakeDraft(
+  scenario: PhotoScenario,
+): Promise<IntakeAgentResponse> {
+  const response = await fetch("/api/intake-agent", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ scenario }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Intake agent returned ${response.status}`);
+  }
+
+  return normaliseIntakeResponse(
+    (await response.json()) as Partial<IntakeAgentResponse>,
+    scenario,
+  );
+}
+
+async function requestMatchRanking(
+  scenario: PhotoScenario,
+  draft: BatchDraft,
+): Promise<MatchRankAgentResponse> {
+  const response = await fetch("/api/match-rank-agent", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      scenario,
+      batchDraft: draft,
+      candidatePool: getCandidatePoolForScenario(scenario.id),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Match ranking agent returned ${response.status}`);
+  }
+
+  const value = (await response.json()) as Partial<MatchRankAgentResponse>;
+  const fallback = buildFallbackMatchRankResponse(scenario.id, draft);
+
+  return {
+    candidates:
+      Array.isArray(value.candidates) && value.candidates.length > 0
+        ? value.candidates
+        : fallback.candidates,
+    aiSummary: value.aiSummary || fallback.aiSummary,
+    ngoFitExplanation: value.ngoFitExplanation || fallback.ngoFitExplanation,
+    handlingNotes: value.handlingNotes || fallback.handlingNotes,
+    routePreview: value.routePreview || fallback.routePreview,
+    source: value.source === "openrouter" ? "openrouter" : "fallback",
+    model: value.model,
+  };
+}
 
 const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
@@ -162,6 +289,9 @@ const formatPickupDeadline = (value: string) => {
 
 function App() {
   const [activeRole, setActiveRole] = useState<Role>("donor");
+  const [queueBatches, setQueueBatches] =
+    useState<MatchQueueBatch[]>(matchQueueBatches);
+  const [nextGeneratedSequence, setNextGeneratedSequence] = useState(1);
   const [selectedBatchId, setSelectedBatchId] = useState(matchQueueBatches[0].id);
   const [matchActionStates, setMatchActionStates] = useState<
     Record<string, MatchActionState>
@@ -169,10 +299,12 @@ function App() {
   const [receiptConfirmedByBatchId, setReceiptConfirmedByBatchId] = useState<
     Record<string, boolean>
   >({});
+  const [impactSummariesByBatchId, setImpactSummariesByBatchId] = useState<
+    Record<string, ImpactAgentSummary>
+  >({});
 
   const selectedBatch =
-    matchQueueBatches.find((batch) => batch.id === selectedBatchId) ??
-    matchQueueBatches[0];
+    queueBatches.find((batch) => batch.id === selectedBatchId) ?? queueBatches[0];
   const selectedCandidate =
     selectedBatch.candidates.find(
       (candidate) => candidate.id === selectedBatch.selectedCandidateId,
@@ -202,16 +334,55 @@ function App() {
     }));
   };
 
+  const appendGeneratedBatch = (
+    scenario: PhotoScenario,
+    draft: BatchDraft,
+    matchResponse: MatchRankAgentResponse,
+  ) => {
+    const nextBatch = buildGeneratedBatchFromDraft({
+      scenario,
+      draft,
+      matchResponse,
+      sequence: nextGeneratedSequence,
+    });
+
+    setNextGeneratedSequence((current) => current + 1);
+    setQueueBatches((current) => [...current, nextBatch]);
+    setSelectedBatchId(nextBatch.id);
+    setMatchActionStates((current) => ({
+      ...current,
+      [nextBatch.id]: "idle",
+    }));
+
+    return nextBatch.id;
+  };
+
+  const cacheImpactSummary = (batchId: string, summary: ImpactAgentSummary) => {
+    setImpactSummariesByBatchId((current) => ({
+      ...current,
+      [batchId]: summary,
+    }));
+  };
+
   return (
     <AppShell activeRole={activeRole} onRoleChange={setActiveRole}>
       <Routes>
         <Route path="/" element={<Navigate to="/intake" replace />} />
-        <Route path="/intake" element={<DonorIntakePage activeRole={activeRole} />} />
+        <Route
+          path="/intake"
+          element={
+            <DonorIntakePage
+              activeRole={activeRole}
+              onGeneratedBatchSubmit={appendGeneratedBatch}
+            />
+          }
+        />
         <Route
           path="/matching"
           element={
             <NGOMatchQueuePage
               activeRole={activeRole}
+              batches={queueBatches}
               selectedBatchId={selectedBatchId}
               actionStates={matchActionStates}
               onSelectBatch={setSelectedBatchId}
@@ -237,6 +408,12 @@ function App() {
               activeRole={activeRole}
               acceptedRouteMatch={acceptedRouteMatch}
               isReceiptConfirmed={isReceiptConfirmed}
+              impactSummary={
+                acceptedRouteMatch
+                  ? impactSummariesByBatchId[acceptedRouteMatch.batch.id]
+                  : undefined
+              }
+              onImpactSummaryResolved={cacheImpactSummary}
             />
           }
         />
@@ -365,26 +542,65 @@ function TopBar({
   );
 }
 
-function DonorIntakePage({ activeRole }: { activeRole: Role }) {
+function DonorIntakePage({
+  activeRole,
+  onGeneratedBatchSubmit,
+}: {
+  activeRole: Role;
+  onGeneratedBatchSubmit: (
+    scenario: PhotoScenario,
+    draft: BatchDraft,
+    matchResponse: MatchRankAgentResponse,
+  ) => string;
+}) {
   const navigate = useNavigate();
-  const [draft, setDraft] = useState<BatchDraft>(emptyDraft);
+  const [selectedScenarioId, setSelectedScenarioId] =
+    useState<ScenarioId>("bakery");
+  const selectedScenario = getPhotoScenario(selectedScenarioId);
+  const [draft, setDraft] = useState<BatchDraft>(selectedScenario.emptyDraft);
   const [status, setStatus] = useState<IntakeStatus>("idle");
   const [lastAnalyzed, setLastAnalyzed] = useState<string>("");
   const [activeStage, setActiveStage] = useState<IntakeStage>("capture");
   const [highestStageIndex, setHighestStageIndex] = useState(0);
   const [analysisPhraseIndex, setAnalysisPhraseIndex] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const batchId = "FL-WC-0625-014";
+  const [intakeResult, setIntakeResult] = useState<IntakeAgentResponse | null>(
+    null,
+  );
+  const [matchSource, setMatchSource] = useState<AISource | null>(null);
+  const [matchModel, setMatchModel] = useState<string | undefined>();
+  const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
 
   const isAnalyzing = status === "analyzing";
   const isDrafted = status === "drafted" || status === "submitted";
   const isSubmitted = status === "submitted";
+  const currentRecommendation =
+    intakeResult?.recommendation ?? selectedScenario.fallbackRecommendation;
+  const currentForecast = intakeResult?.forecast ?? selectedScenario.forecast;
+  const currentSensorEvidence =
+    intakeResult?.sensorEvidence ?? selectedScenario.sensorEvidence;
+  const intakeSource = intakeResult?.source ?? null;
+  const intakeModel = intakeResult?.model;
 
   const unlockStage = (stage: IntakeStage) => {
     setHighestStageIndex((current) =>
       Math.max(current, getIntakeStageIndex(stage)),
     );
   };
+
+  useEffect(() => {
+    setDraft(selectedScenario.emptyDraft);
+    setStatus("idle");
+    setLastAnalyzed("");
+    setActiveStage("capture");
+    setHighestStageIndex(getIntakeStageIndex("capture"));
+    setAnalysisPhraseIndex(0);
+    setAnalysisProgress(0);
+    setIntakeResult(null);
+    setMatchSource(null);
+    setMatchModel(undefined);
+    setIsSubmittingMatch(false);
+  }, [selectedScenario]);
 
   useEffect(() => {
     if (status !== "analyzing") {
@@ -394,7 +610,7 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
     const startedAt = window.performance.now();
     const intervalId = window.setInterval(() => {
       const elapsed = window.performance.now() - startedAt;
-      const nextProgress = Math.min(100, (elapsed / analysisDurationMs) * 100);
+      const nextProgress = Math.min(94, (elapsed / analysisDurationMs) * 100);
       const nextPhraseIndex = Math.min(
         analysisPhrases.length - 1,
         Math.floor((elapsed / analysisDurationMs) * analysisPhrases.length),
@@ -404,38 +620,61 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
       setAnalysisPhraseIndex(nextPhraseIndex);
     }, 100);
 
-    const timeoutId = window.setTimeout(() => {
-      window.clearInterval(intervalId);
-      setDraft(analyzedDraft);
-      setStatus("drafted");
-      setLastAnalyzed(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-        }).format(new Date()),
-      );
-      setAnalysisProgress(100);
-      setAnalysisPhraseIndex(analysisPhrases.length - 1);
-      setActiveStage("review");
-      setHighestStageIndex((current) =>
-        Math.max(current, getIntakeStageIndex("review")),
-      );
-    }, analysisDurationMs);
-
     return () => {
       window.clearInterval(intervalId);
-      window.clearTimeout(timeoutId);
     };
   }, [status]);
 
-  const handleAnalyze = () => {
-    setDraft({ ...emptyDraft });
+  const finishAnalyze = (result: IntakeAgentResponse) => {
+    setDraft(result.draft);
+    setIntakeResult(result);
+    setStatus("drafted");
+    setLastAnalyzed(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date()),
+    );
+    setAnalysisProgress(100);
+    setAnalysisPhraseIndex(analysisPhrases.length - 1);
+    setActiveStage("review");
+    setHighestStageIndex((current) =>
+      Math.max(current, getIntakeStageIndex("review")),
+    );
+  };
+
+  const handleScenarioSelect = (scenarioId: ScenarioId) => {
+    if (!isAnalyzing && !isSubmittingMatch) {
+      setSelectedScenarioId(scenarioId);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    const scenario = selectedScenario;
+
+    setDraft({ ...scenario.emptyDraft });
     setStatus("analyzing");
     setLastAnalyzed("");
     setAnalysisPhraseIndex(0);
     setAnalysisProgress(0);
+    setIntakeResult(null);
+    setMatchSource(null);
+    setMatchModel(undefined);
     setActiveStage("capture");
     setHighestStageIndex(getIntakeStageIndex("capture"));
+
+    try {
+      const [result] = await Promise.all([
+        requestIntakeDraft(scenario),
+        wait(minimumAgentDelayMs),
+      ]);
+      finishAnalyze(result);
+    } catch {
+      await wait(minimumAgentDelayMs);
+      finishAnalyze(
+        getScenarioFallbackIntake(scenario, "The local intake agent was unavailable."),
+      );
+    }
   };
 
   const handleContinueToConfirm = () => {
@@ -463,12 +702,30 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
     setActiveStage("review");
   };
 
-  const handleSubmit = () => {
-    if (!draft.category) {
-      setDraft(analyzedDraft);
+  const handleSubmit = async () => {
+    const scenario = selectedScenario;
+    const submittedDraft = draft.category ? draft : scenario.fallbackDraft;
+
+    setIsSubmittingMatch(true);
+
+    try {
+      const matchResponse = await requestMatchRanking(scenario, submittedDraft);
+      onGeneratedBatchSubmit(scenario, submittedDraft, matchResponse);
+      setMatchSource(matchResponse.source);
+      setMatchModel(matchResponse.model);
+    } catch {
+      const fallbackMatchResponse = buildFallbackMatchRankResponse(
+        scenario.id,
+        submittedDraft,
+      );
+      onGeneratedBatchSubmit(scenario, submittedDraft, fallbackMatchResponse);
+      setMatchSource("fallback");
+      setMatchModel(undefined);
+    } finally {
+      setStatus("submitted");
+      setIsSubmittingMatch(false);
+      navigate("/matching");
     }
-    setStatus("submitted");
-    navigate("/matching");
   };
 
   const handleStageSelect = (stage: IntakeStage) => {
@@ -482,12 +739,17 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
       case "capture":
         return (
           <CaptureStagePanel
+            scenarios={photoScenarios}
+            selectedScenario={selectedScenario}
+            intakeSource={intakeSource}
+            intakeModel={intakeModel}
             isDrafted={isDrafted}
             isAnalyzing={isAnalyzing}
             lastAnalyzed={lastAnalyzed}
             analysisPhrase={analysisPhrases[analysisPhraseIndex]}
             analysisPhraseIndex={analysisPhraseIndex}
             analysisProgress={analysisProgress}
+            onScenarioSelect={handleScenarioSelect}
             onAnalyze={handleAnalyze}
           />
         );
@@ -496,6 +758,11 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
           <ReviewStagePanel
             draft={draft}
             isDrafted={isDrafted}
+            recommendation={currentRecommendation}
+            forecast={currentForecast}
+            sensorEvidence={currentSensorEvidence}
+            intakeSource={intakeSource}
+            intakeModel={intakeModel}
             onFieldChange={handleFieldChange}
             onValueChange={handleDraftValueChange}
             onContinue={handleContinueToConfirm}
@@ -506,6 +773,9 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
           <ConfirmStagePanel
             draft={draft}
             status={status}
+            isSubmittingMatch={isSubmittingMatch}
+            matchSource={matchSource}
+            matchModel={matchModel}
             onReturnToEdit={handleReturnToEdit}
             onSubmit={handleSubmit}
           />
@@ -522,14 +792,14 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
           <p className="page-kicker">Wan Chai donor workflow</p>
           <h1 id="intake-title">Donor Intake</h1>
           <p>
-            Capture bakery surplus, review the AI draft, and submit a confirmed
+            Choose a surplus photo, review the AI draft, and submit a confirmed
             batch for matching.
           </p>
         </div>
 
         <div className="heading-meta" aria-label="Current role context">
           <span>{activeRole === "donor" ? "Donor view" : "NGO role active"}</span>
-          <span>Sunrise Bakery</span>
+          <span>{selectedScenario.donorName}</span>
         </div>
       </div>
 
@@ -546,10 +816,14 @@ function DonorIntakePage({ activeRole }: { activeRole: Role }) {
           <IntakeReceipt
             activeStage={activeStage}
             status={status}
-            batchId={batchId}
+            batchId={`FL-${selectedScenario.batchPrefix}-AI`}
             draft={draft}
             lastAnalyzed={lastAnalyzed}
             isSubmitted={isSubmitted}
+            intakeSource={intakeSource}
+            intakeModel={intakeModel}
+            matchSource={matchSource}
+            matchModel={matchModel}
           />
         </div>
       </div>
@@ -621,20 +895,30 @@ function IntakeProgressRail({
 }
 
 function CaptureStagePanel({
+  scenarios,
+  selectedScenario,
+  intakeSource,
+  intakeModel,
   isDrafted,
   isAnalyzing,
   lastAnalyzed,
   analysisPhrase,
   analysisPhraseIndex,
   analysisProgress,
+  onScenarioSelect,
   onAnalyze,
 }: {
+  scenarios: PhotoScenario[];
+  selectedScenario: PhotoScenario;
+  intakeSource: AISource | null;
+  intakeModel?: string;
   isDrafted: boolean;
   isAnalyzing: boolean;
   lastAnalyzed: string;
   analysisPhrase: string;
   analysisPhraseIndex: number;
   analysisProgress: number;
+  onScenarioSelect: (scenarioId: ScenarioId) => void;
   onAnalyze: () => void;
 }) {
   return (
@@ -651,6 +935,32 @@ function CaptureStagePanel({
               : "Start here"
         }
       />
+      <div className="scenario-card-grid" aria-label="Photo scenarios">
+        {scenarios.map((scenario) => {
+          const isSelected = scenario.id === selectedScenario.id;
+
+          return (
+            <button
+              key={scenario.id}
+              type="button"
+              className={
+                isSelected
+                  ? "scenario-card scenario-card-active"
+                  : "scenario-card"
+              }
+              aria-pressed={isSelected}
+              disabled={isAnalyzing}
+              onClick={() => onScenarioSelect(scenario.id)}
+            >
+              <img src={scenario.imageSrc} alt="" aria-hidden="true" />
+              <span>
+                <strong>{scenario.cardTitle}</strong>
+                <small>{scenario.donorName}</small>
+              </span>
+            </button>
+          );
+        })}
+      </div>
       <div className="capture-grid">
         <div>
           <div
@@ -663,8 +973,8 @@ function CaptureStagePanel({
               .join(" ")}
           >
             <img
-              src={bakeryPhoto}
-              alt="Sealed bakery surplus in green crates at a Wan Chai bakery counter"
+              src={selectedScenario.imageSrc}
+              alt={selectedScenario.imageAlt}
             />
             {isAnalyzing ? (
               <div className="scanner-overlay" aria-hidden="true">
@@ -674,8 +984,8 @@ function CaptureStagePanel({
             ) : null}
           </div>
           <div className="photo-meta">
-            <span>Wan Chai bakery photo</span>
-            <span>JPG, 2.4 MB</span>
+            <span>{selectedScenario.photoLabel}</span>
+            <span>{selectedScenario.fileMeta}</span>
           </div>
         </div>
 
@@ -688,7 +998,12 @@ function CaptureStagePanel({
             />
           ) : (
             <>
-              <h3>Photo intake for Sunrise Bakery</h3>
+              <div className="capture-title-row">
+                <h3>Photo intake for {selectedScenario.donorName}</h3>
+                {intakeSource ? (
+                  <SourceBadge source={intakeSource} model={intakeModel} />
+                ) : null}
+              </div>
               <p>
                 Use the supplied photo to draft category, items, quantity, and
                 pickup timing.
@@ -698,15 +1013,15 @@ function CaptureStagePanel({
           <dl className="context-list">
             <div>
               <dt>Donor</dt>
-              <dd>{emptyDraft.donorName}</dd>
+              <dd>{selectedScenario.donorName}</dd>
             </div>
             <div>
               <dt>Location</dt>
-              <dd>{emptyDraft.location}</dd>
+              <dd>{selectedScenario.location}</dd>
             </div>
             <div>
               <dt>Holding</dt>
-              <dd>{emptyDraft.holdingStatus}</dd>
+              <dd>{selectedScenario.emptyDraft.holdingStatus}</dd>
             </div>
           </dl>
           <button
@@ -770,12 +1085,22 @@ function AnalysisLoadingPanel({
 function ReviewStagePanel({
   isDrafted,
   draft,
+  recommendation,
+  forecast,
+  sensorEvidence: scenarioSensorEvidence,
+  intakeSource,
+  intakeModel,
   onFieldChange,
   onValueChange,
   onContinue,
 }: {
   isDrafted: boolean;
   draft: BatchDraft;
+  recommendation: AgentRecommendation;
+  forecast: ForecastSummary;
+  sensorEvidence: SensorEvidence;
+  intakeSource: AISource | null;
+  intakeModel?: string;
   onFieldChange: (
     field: keyof BatchDraft,
   ) => (
@@ -802,17 +1127,21 @@ function ReviewStagePanel({
           title="Edit AI intake draft"
           actionText={
             isDrafted
-              ? `${agentRecommendation.confidence}% draft confidence`
+              ? `${recommendation.confidence}% draft confidence`
               : "Awaiting photo"
           }
         />
-        <Badge tone="review">Editable review</Badge>
+        {intakeSource ? (
+          <SourceBadge source={intakeSource} model={intakeModel} />
+        ) : (
+          <Badge tone="review">Editable review</Badge>
+        )}
       </div>
 
       <div className="agent-copy">
         <p>
           {isDrafted
-            ? agentRecommendation.summary
+            ? recommendation.summary
             : "Analyze the photo to prepare a donor-editable review draft."}
         </p>
       </div>
@@ -821,33 +1150,33 @@ function ReviewStagePanel({
         <EvidenceChip
           icon={CalendarClock}
           label="Forecast"
-          value={forecastSummary.predictedBand}
-          supporting={`${forecastSummary.confidence}% confidence`}
+          value={forecast.predictedBand}
+          supporting={`${forecast.confidence}% confidence`}
         />
         <EvidenceChip
           icon={Building2}
           label="Storage"
-          value={draft.storageLocation || sensorEvidence.storageLocation}
-          supporting={forecastSummary.likelyWindow}
+          value={draft.storageLocation || scenarioSensorEvidence.storageLocation}
+          supporting={forecast.likelyWindow}
         />
         <EvidenceChip
           icon={Thermometer}
           label="Temperature"
-          value={draft.temperatureStatus || sensorEvidence.temperature}
-          supporting={sensorEvidence.lastReadingAt}
+          value={draft.temperatureStatus || scenarioSensorEvidence.temperature}
+          supporting={scenarioSensorEvidence.lastReadingAt}
         />
         <EvidenceChip
           icon={Layers}
           label="Sensor"
-          value={draft.sensorAttachment || sensorEvidence.sensorAttachment}
-          supporting={sensorEvidence.holdingStatus}
+          value={draft.sensorAttachment || scenarioSensorEvidence.sensorAttachment}
+          supporting={scenarioSensorEvidence.holdingStatus}
         />
       </div>
       <div className="agent-footer">
         <Badge tone={isDrafted ? "low" : "review"}>
           {isDrafted ? draft.handlingPriority : "Needs confirmation"}
         </Badge>
-        <span>{agentRecommendation.requiredConfirmation}</span>
+        <span>{recommendation.requiredConfirmation}</span>
       </div>
 
       <div className="form-grid">
@@ -986,11 +1315,17 @@ function EvidenceChip({
 function ConfirmStagePanel({
   draft,
   status,
+  isSubmittingMatch,
+  matchSource,
+  matchModel,
   onReturnToEdit,
   onSubmit,
 }: {
   draft: BatchDraft;
   status: IntakeStatus;
+  isSubmittingMatch: boolean;
+  matchSource: AISource | null;
+  matchModel?: string;
   onReturnToEdit: () => void;
   onSubmit: () => void;
 }) {
@@ -1008,11 +1343,19 @@ function ConfirmStagePanel({
           id="confirm-summary-title"
           icon={FileText}
           title="Confirm locked batch"
-          actionText="Final checkpoint"
+          actionText={isSubmittingMatch ? "Ranking matches" : "Final checkpoint"}
         />
-        <Badge tone={status === "submitted" ? "routing" : "review"}>
-          {status === "submitted" ? "Pending match" : "Ready to submit"}
-        </Badge>
+        {matchSource ? (
+          <SourceBadge source={matchSource} model={matchModel} />
+        ) : (
+          <Badge tone={status === "submitted" ? "routing" : "review"}>
+            {isSubmittingMatch
+              ? "Ranking NGOs"
+              : status === "submitted"
+                ? "Pending match"
+                : "Ready to submit"}
+          </Badge>
+        )}
       </div>
 
       <div className="locked-note">
@@ -1083,10 +1426,11 @@ function ConfirmStagePanel({
         <button
           type="button"
           className="button button-primary"
+          disabled={isSubmittingMatch}
           onClick={onSubmit}
         >
           <Send size={17} aria-hidden="true" />
-          Confirm & Submit
+          {isSubmittingMatch ? "Ranking Matches" : "Submit for Matching"}
         </button>
       </div>
     </section>
@@ -1117,6 +1461,10 @@ function IntakeReceipt({
   draft,
   lastAnalyzed,
   isSubmitted,
+  intakeSource,
+  intakeModel,
+  matchSource,
+  matchModel,
 }: {
   activeStage: IntakeStage;
   status: IntakeStatus;
@@ -1124,6 +1472,10 @@ function IntakeReceipt({
   draft: BatchDraft;
   lastAnalyzed: string;
   isSubmitted: boolean;
+  intakeSource: AISource | null;
+  intakeModel?: string;
+  matchSource: AISource | null;
+  matchModel?: string;
 }) {
   const activeStageLabel =
     intakeStages.find((stage) => stage.id === activeStage)?.label ?? "Capture";
@@ -1152,7 +1504,13 @@ function IntakeReceipt({
         actionText={activeStageLabel}
       />
       <div className="receipt-status">
-        <Badge tone={isSubmitted ? "routing" : "review"}>{statusLabel}</Badge>
+        {matchSource ? (
+          <SourceBadge source={matchSource} model={matchModel} />
+        ) : intakeSource ? (
+          <SourceBadge source={intakeSource} model={intakeModel} />
+        ) : (
+          <Badge tone={isSubmitted ? "routing" : "review"}>{statusLabel}</Badge>
+        )}
         {status === "analyzing" ? (
           <span>Analyzing now</span>
         ) : lastAnalyzed ? (
@@ -1233,7 +1591,7 @@ function SpecificItemsField({
   value: string;
   onValueChange: (value: string) => void;
 }) {
-  const presetMatch = bakeryItemPresets.includes(value);
+  const presetMatch = itemDescriptionPresets.includes(value);
   const selectedValue = presetMatch ? value : customItemOption;
   const isCustom = selectedValue === customItemOption;
   const helperId = `${id}-helper`;
@@ -1251,7 +1609,7 @@ function SpecificItemsField({
           )
         }
       >
-        {bakeryItemPresets.map((option) => (
+        {itemDescriptionPresets.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
@@ -1460,6 +1818,25 @@ function Badge({
   children: ReactNode;
 }) {
   return <span className={`badge badge-${tone}`}>{children}</span>;
+}
+
+function SourceBadge({
+  source,
+  model,
+}: {
+  source?: AISource | null;
+  model?: string;
+}) {
+  const isLive = source === "openrouter";
+
+  return (
+    <span
+      className={isLive ? "source-badge source-badge-live" : "source-badge"}
+      title={isLive && model ? `OpenRouter model: ${model}` : undefined}
+    >
+      {sourceLabel(source)}
+    </span>
+  );
 }
 
 export default App;
