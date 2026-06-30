@@ -1452,5 +1452,8 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
 };
 
 export default defineConfig(({ mode }) => ({
+  server: {
+    allowedHosts: ["foodloop-demo-jason.fly.dev"],
+  },
   plugins: [react(), createMatchingAgentPlugin(mode)],
 }));
