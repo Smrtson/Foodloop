@@ -20,6 +20,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AIOutputViewer } from "./AIOutputViewer";
+import { buildImpactOutputDisplay } from "./ai/outputDisplay";
 import {
   impactAgentSummary,
   impactCumulativeMetricDefinitions,
@@ -334,6 +335,7 @@ export function SharedImpactPage({
               source={activeImpactSummary.source}
               modelOutput={activeImpactSummary.modelOutput}
               skillMetadata={activeImpactSummary}
+              displayData={buildImpactOutputDisplay(activeImpactSummary)}
             />
           ) : null}
         </section>

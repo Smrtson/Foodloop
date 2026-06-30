@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Link } from "react-router-dom";
 import { AIOutputViewer } from "./AIOutputViewer";
+import { buildRouteOutputDisplay } from "./ai/outputDisplay";
 import { getSkillMetadata } from "./ai/skillRegistry";
 import { buildRoutePlanFromMatch } from "./data";
 import type {
@@ -519,6 +520,7 @@ export function SharedRoutePage({
               source={routeAgentResponse.source}
               modelOutput={routeAgentResponse.modelOutput}
               skillMetadata={routeAgentResponse}
+              displayData={buildRouteOutputDisplay(routeAgentResponse.routePlan)}
             />
           ) : null}
         </section>

@@ -22,6 +22,10 @@ import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AIOutputViewer } from "./AIOutputViewer";
+import {
+  buildCommunicationOutputDisplay,
+  buildMatchingOutputDisplay,
+} from "./ai/outputDisplay";
 import { getSkillMetadata } from "./ai/skillRegistry";
 import { fallbackAIModalCopy } from "./data";
 import type {
@@ -604,6 +608,7 @@ function MatchingAgentPanel({
           source={batch.aiSource}
           modelOutput={batch.modelOutput}
           skillMetadata={batch}
+          displayData={buildMatchingOutputDisplay(batch)}
         />
       ) : null}
     </section>
@@ -910,6 +915,7 @@ function AIAgentModal({
               source={response.source}
               modelOutput={response.modelOutput}
               skillMetadata={response}
+              displayData={buildCommunicationOutputDisplay(response)}
             />
           </>
         )}

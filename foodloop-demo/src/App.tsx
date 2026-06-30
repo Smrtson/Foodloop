@@ -48,6 +48,7 @@ import {
   getSkillMetadata,
   skillFlow,
 } from "./ai/skillRegistry";
+import { buildIntakeOutputDisplay } from "./ai/outputDisplay";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
 import { SharedImpactPage } from "./SharedImpactPage";
 import { SharedRoutePage } from "./SharedRoutePage";
@@ -1217,6 +1218,11 @@ function ReviewStagePanel({
           source={intakeSource}
           modelOutput={modelOutput}
           skillMetadata={skillMetadata}
+          displayData={buildIntakeOutputDisplay(
+            recommendation,
+            forecast,
+            scenarioSensorEvidence,
+          )}
         />
       ) : null}
 
