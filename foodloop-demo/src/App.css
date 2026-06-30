@@ -2781,7 +2781,7 @@ textarea:focus-visible {
   display: grid;
   grid-template-areas:
     "map agent action"
-    "map timeline action";
+    "timeline agent action";
   grid-template-columns: minmax(360px, 1.08fr) minmax(300px, 0.92fr) minmax(
       280px,
       320px
@@ -4097,7 +4097,8 @@ textarea:focus-visible {
   .route-workspace-grid {
     grid-template-areas:
       "map action"
-      "agent timeline";
+      "timeline action"
+      "agent agent";
     grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
   }
 
@@ -4181,8 +4182,8 @@ textarea:focus-visible {
   .route-workspace-grid {
     grid-template-areas:
       "map"
-      "agent"
       "timeline"
+      "agent"
       "action";
   }
 

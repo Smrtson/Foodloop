@@ -464,6 +464,33 @@ export function SharedRoutePage({
           </div>
         </section>
 
+        <section className="panel route-timeline-panel" aria-labelledby="route-timeline-title">
+          <RoutePanelHeading
+            id="route-timeline-title"
+            icon={CheckCircle2}
+            title="Shared timeline"
+            meta={isReceiptConfirmed ? "Closed" : "In progress"}
+          />
+
+          <ol className="route-timeline">
+            {timeline.map((step) => (
+              <li
+                key={step.id}
+                className={`route-timeline-step route-timeline-step-${step.status}`}
+              >
+                <span className="route-timeline-marker" aria-hidden="true">
+                  {step.status === "done" ? <Check size={13} /> : null}
+                </span>
+                <div>
+                  <strong>{step.label}</strong>
+                  <span>{step.time}</span>
+                  <p>{step.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <section
           className="panel route-agent-panel"
           aria-labelledby="route-agent-title"
@@ -523,33 +550,6 @@ export function SharedRoutePage({
               displayData={buildRouteOutputDisplay(routeAgentResponse.routePlan)}
             />
           ) : null}
-        </section>
-
-        <section className="panel route-timeline-panel" aria-labelledby="route-timeline-title">
-          <RoutePanelHeading
-            id="route-timeline-title"
-            icon={CheckCircle2}
-            title="Shared timeline"
-            meta={isReceiptConfirmed ? "Closed" : "In progress"}
-          />
-
-          <ol className="route-timeline">
-            {timeline.map((step) => (
-              <li
-                key={step.id}
-                className={`route-timeline-step route-timeline-step-${step.status}`}
-              >
-                <span className="route-timeline-marker" aria-hidden="true">
-                  {step.status === "done" ? <Check size={13} /> : null}
-                </span>
-                <div>
-                  <strong>{step.label}</strong>
-                  <span>{step.time}</span>
-                  <p>{step.note}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
         </section>
 
         <aside className="panel route-action-panel" aria-label="Route confirmation">
