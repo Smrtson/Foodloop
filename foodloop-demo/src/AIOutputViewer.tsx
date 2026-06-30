@@ -28,7 +28,7 @@ export function AIOutputViewer({
   source,
   modelOutput,
   className,
-  label = "Live AI model output",
+  label = "FoodLoop AI recommendation",
   skillMetadata,
 }: {
   source?: AISource | null;
@@ -155,7 +155,7 @@ export function AIOutputViewer({
             </pre>
           </>
         ) : (
-          <p className="ai-output-empty">No live model output.</p>
+          <p className="ai-output-empty">No FoodLoop AI recommendation available.</p>
         )}
       </div>
     </details>

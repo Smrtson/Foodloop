@@ -1161,7 +1161,8 @@ export const fallbackAIModalCopy: Record<
 > = {
   "request-info": {
     title: "Information request draft",
-    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
+    intro:
+      "Fallback demo data prepared this copy because a FoodLoop AI recommendation is unavailable.",
     message:
       "Please confirm the final count, pickup contact, holding location, and any packaging notes before the recipient accepts this batch.",
     nextSteps: [
@@ -1170,11 +1171,12 @@ export const fallbackAIModalCopy: Record<
       "Refresh the match recommendation after the donor replies.",
     ],
     confidenceNote:
-      "Live FoodLoop AI did not return a usable draft for this action.",
+      "No usable FoodLoop AI recommendation was returned for this action.",
   },
   decline: {
     title: "Decline and reroute note",
-    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
+    intro:
+      "Fallback demo data prepared this copy because a FoodLoop AI recommendation is unavailable.",
     message:
       "Thank you for reviewing this opportunity. We cannot accept the current batch window, so FoodLoop should offer it to the next matched recipient.",
     nextSteps: [
@@ -1183,7 +1185,7 @@ export const fallbackAIModalCopy: Record<
       "Notify the donor only after a new recipient is selected.",
     ],
     confidenceNote:
-      "Live FoodLoop AI did not return a usable draft for this action.",
+      "No usable FoodLoop AI recommendation was returned for this action.",
   },
 };
 

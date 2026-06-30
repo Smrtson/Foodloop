@@ -273,7 +273,8 @@ const fallbackModalCopy: Record<
 > = {
   "request-info": {
     title: "Information request draft",
-    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
+    intro:
+      "Fallback demo data prepared this copy because a FoodLoop AI recommendation is unavailable.",
     message:
       "Please confirm the final count, pickup contact, holding location, and any packaging notes before the recipient accepts this batch.",
     nextSteps: [
@@ -282,11 +283,12 @@ const fallbackModalCopy: Record<
       "Refresh the match recommendation after the donor replies.",
     ],
     confidenceNote:
-      "Live FoodLoop AI did not return a usable draft for this action.",
+      "No usable FoodLoop AI recommendation was returned for this action.",
   },
   decline: {
     title: "Decline and reroute note",
-    intro: "Fallback demo data prepared this copy because live AI is unavailable.",
+    intro:
+      "Fallback demo data prepared this copy because a FoodLoop AI recommendation is unavailable.",
     message:
       "Thank you for reviewing this opportunity. We cannot accept the current batch window, so FoodLoop should offer it to the next matched recipient.",
     nextSteps: [
@@ -295,7 +297,7 @@ const fallbackModalCopy: Record<
       "Notify the donor only after a new recipient is selected.",
     ],
     confidenceNote:
-      "Live FoodLoop AI did not return a usable draft for this action.",
+      "No usable FoodLoop AI recommendation was returned for this action.",
   },
 };
 
@@ -501,7 +503,7 @@ const requestNormalisedOpenRouterJson = async <T>({
   | { ok: false; detail: string }
 > => {
   let fallbackDetail =
-    "Live FoodLoop AI request failed or timed out; using fallback demo data.";
+    "FoodLoop AI recommendation request failed or timed out; using fallback demo data.";
 
   for (let attempt = 0; attempt < openRouterMaxAttempts; attempt += 1) {
     if (attempt > 0) {
@@ -517,7 +519,7 @@ const requestNormalisedOpenRouterJson = async <T>({
       });
 
       if (!result.ok) {
-        fallbackDetail = `Live FoodLoop AI returned upstream status ${result.status}; using fallback demo data.`;
+        fallbackDetail = `FoodLoop AI recommendation returned upstream status ${result.status}; using fallback demo data.`;
 
         if (result.status === 401 || result.status === 403 || result.status === 404) {
           break;
@@ -536,7 +538,7 @@ const requestNormalisedOpenRouterJson = async <T>({
       fallbackDetail = invalidDetail;
     } catch {
       fallbackDetail =
-        "Live FoodLoop AI request failed or timed out; using fallback demo data.";
+        "FoodLoop AI recommendation request failed or timed out; using fallback demo data.";
     }
   }
 
@@ -1106,7 +1108,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackIntakeResponse(
               payload.scenario,
-              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+              "FoodLoop AI recommendation is not configured for this local session; using fallback demo data.",
             ),
           );
           return;
@@ -1127,7 +1129,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             normalise: (value) =>
               normaliseIntakeResponse(value, payload.scenario, model),
             invalidDetail:
-              "Live FoodLoop AI returned an incomplete response; using fallback demo data.",
+              "FoodLoop AI recommendation returned an incomplete response; using fallback demo data.",
           });
 
           sendJson(
@@ -1143,7 +1145,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackIntakeResponse(
               payload.scenario,
-              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+              "FoodLoop AI recommendation request failed or timed out; using fallback demo data.",
             ),
           );
         }
@@ -1180,7 +1182,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackMatchRankResponse(
               payload,
-              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+              "FoodLoop AI recommendation is not configured for this local session; using fallback demo data.",
             ),
           );
           return;
@@ -1214,7 +1216,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             normalise: (value) =>
               normaliseMatchRankResponse(value, payload, model),
             invalidDetail:
-              "Live FoodLoop AI returned an incomplete ranking; using fallback demo data.",
+              "FoodLoop AI recommendation returned an incomplete ranking; using fallback demo data.",
           });
 
           sendJson(
@@ -1230,7 +1232,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackMatchRankResponse(
               payload,
-              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+              "FoodLoop AI recommendation request failed or timed out; using fallback demo data.",
             ),
           );
         }
@@ -1264,7 +1266,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackResponse(
               action,
-              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+              "FoodLoop AI recommendation is not configured for this local session; using fallback demo data.",
             ),
           );
           return;
@@ -1284,7 +1286,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             }),
             normalise: (value) => normaliseModalResponse(value, action, model),
             invalidDetail:
-              "Live FoodLoop AI returned an incomplete draft; using fallback demo data.",
+              "FoodLoop AI recommendation returned an incomplete draft; using fallback demo data.",
           });
 
           sendJson(
@@ -1300,7 +1302,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackResponse(
               action,
-              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+              "FoodLoop AI recommendation request failed or timed out; using fallback demo data.",
             ),
           );
         }
@@ -1337,7 +1339,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackRouteAgentResponse(
               payload,
-              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+              "FoodLoop AI recommendation is not configured for this local session; using fallback demo data.",
             ),
           );
           return;
@@ -1359,7 +1361,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             normalise: (value) =>
               normaliseRouteAgentResponse(value, payload, model),
             invalidDetail:
-              "Live FoodLoop AI returned an incomplete route recommendation; using fallback demo data.",
+              "FoodLoop AI recommendation returned an incomplete route response; using fallback demo data.",
           });
 
           sendJson(
@@ -1375,7 +1377,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackRouteAgentResponse(
               payload,
-              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+              "FoodLoop AI recommendation request failed or timed out; using fallback demo data.",
             ),
           );
         }
@@ -1406,7 +1408,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             devResponse,
             200,
             fallbackImpactAgentResponse(
-              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+              "FoodLoop AI recommendation is not configured for this local session; using fallback demo data.",
             ),
           );
           return;
@@ -1425,7 +1427,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             }),
             normalise: (value) => normaliseImpactResponse(value, model),
             invalidDetail:
-              "Live FoodLoop AI returned an incomplete impact summary; using fallback demo data.",
+              "FoodLoop AI recommendation returned an incomplete impact summary; using fallback demo data.",
           });
 
           sendJson(
@@ -1440,7 +1442,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             devResponse,
             200,
             fallbackImpactAgentResponse(
-              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+              "FoodLoop AI recommendation request failed or timed out; using fallback demo data.",
             ),
           );
         }

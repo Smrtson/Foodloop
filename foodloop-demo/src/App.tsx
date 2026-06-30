@@ -145,7 +145,7 @@ const wait = (durationMs: number) =>
   });
 
 const sourceLabel = (source?: AISource | null) =>
-  source === "openrouter" ? "Live FoodLoop AI" : "Fallback demo data";
+  source === "openrouter" ? "FoodLoop AI recommendation" : "Fallback demo data";
 
 const getScenarioFallbackIntake = (
   scenario: PhotoScenario,
@@ -732,7 +732,7 @@ function DonorIntakePage({
       finishAnalyze(
         getScenarioFallbackIntake(
           scenario,
-          "Live FoodLoop AI was unavailable, so fallback demo data prepared this draft.",
+          "Fallback demo data prepared this draft because a FoodLoop AI recommendation was unavailable.",
         ),
       );
     }
@@ -2001,7 +2001,11 @@ function SourceBadge({
   return (
     <span
       className={isLive ? "source-badge source-badge-live" : "source-badge"}
-      title={isLive && model ? `Live FoodLoop AI via OpenRouter (${model})` : undefined}
+      title={
+        isLive && model
+          ? `FoodLoop AI recommendation via OpenRouter (${model})`
+          : undefined
+      }
     >
       {sourceLabel(source)}
     </span>
