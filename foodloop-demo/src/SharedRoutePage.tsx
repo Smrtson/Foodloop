@@ -18,10 +18,13 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Link } from "react-router-dom";
+import { AIOutputViewer } from "./AIOutputViewer";
+import { getSkillMetadata } from "./ai/skillRegistry";
 import { buildRoutePlanFromMatch } from "./data";
 import type {
   AcceptedRouteMatch,
   Role,
+  RouteAgentResponse,
   RouteStop,
   RouteTimelineStep,
   SharedRoutePlan,
@@ -31,6 +34,8 @@ const completedReceivedTime = "1:08 PM";
 const routeSourceId = "shared-route-source";
 const routeCasingLayerId = "shared-route-casing";
 const routeLineLayerId = "shared-route-line";
+const liveAgentRequestAttempts = 3;
+const liveAgentRetryDelayMs = 900;
 
 const openStreetMapStyle: StyleSpecification = {
   version: 8,
@@ -50,6 +55,131 @@ const openStreetMapStyle: StyleSpecification = {
     },
   ],
 };
+
+const wait = (durationMs: number) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
+
+function withGuardedRouteFacts(routePlan: SharedRoutePlan): SharedRoutePlan {
+  return {
+    ...routePlan,
+    agent: {
+      ...routePlan.agent,
+      agentName: routePlan.agent.agentName || "FoodLoop Route AI",
+      etaLabel: routePlan.etaLabel,
+      pickupWindow: routePlan.pickupWindow,
+      statusLabel: routePlan.slaStatus,
+    },
+  };
+}
+
+function buildLocalRouteFallback(
+  routePlan: SharedRoutePlan,
+  detail?: string,
+): RouteAgentResponse {
+  const guardedRoutePlan = withGuardedRouteFacts(routePlan);
+
+  return {
+    routePlan: {
+      ...guardedRoutePlan,
+      agent: {
+        ...guardedRoutePlan.agent,
+        agentName: "FoodLoop Route AI",
+        summary: detail
+          ? `${guardedRoutePlan.agent.summary} ${detail}`
+          : guardedRoutePlan.agent.summary,
+      },
+    },
+    source: "fallback",
+    ...getSkillMetadata("route"),
+  };
+}
+
+function normaliseRouteAgentResponse(
+  value: Partial<RouteAgentResponse>,
+  fallbackPlan: SharedRoutePlan,
+): RouteAgentResponse {
+  const source = value.source === "openrouter" ? "openrouter" : "fallback";
+  const routePlan = value.routePlan
+    ? withGuardedRouteFacts(value.routePlan)
+    : withGuardedRouteFacts(fallbackPlan);
+
+  return {
+    routePlan,
+    source,
+    model: value.model,
+    modelOutput: source === "openrouter" ? value.modelOutput : undefined,
+    skillId: value.skillId,
+    skillName: value.skillName,
+    skillVersion: value.skillVersion,
+    guarded: value.guarded,
+    supportingSkills: value.supportingSkills,
+  };
+}
+
+async function requestRouteAgent(
+  routePlan: SharedRoutePlan,
+  acceptedRouteMatch: AcceptedRouteMatch,
+): Promise<RouteAgentResponse> {
+  let fallbackResult: RouteAgentResponse | null = null;
+
+  for (let attempt = 0; attempt < liveAgentRequestAttempts; attempt += 1) {
+    const response = await fetch("/api/route-agent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        routePlan,
+        batch: {
+          id: acceptedRouteMatch.batch.id,
+          title: acceptedRouteMatch.batch.title,
+          donorName: acceptedRouteMatch.batch.donorName,
+          donorLocation: acceptedRouteMatch.batch.donorLocation,
+          itemDescription: acceptedRouteMatch.batch.itemDescription,
+          quantityLabel: acceptedRouteMatch.batch.quantityLabel,
+          packaging: acceptedRouteMatch.batch.packaging,
+          pickupDeadline: acceptedRouteMatch.batch.pickupDeadline,
+          storageEvidence: acceptedRouteMatch.batch.storageEvidence,
+          handlingPriority: acceptedRouteMatch.batch.handlingPriority,
+        },
+        candidate: {
+          id: acceptedRouteMatch.candidate.id,
+          name: acceptedRouteMatch.candidate.name,
+          district: acceptedRouteMatch.candidate.district,
+          distanceKm: acceptedRouteMatch.candidate.distanceKm,
+          demandLabel: acceptedRouteMatch.candidate.demandLabel,
+          capacityLabel: acceptedRouteMatch.candidate.capacityLabel,
+          serviceWindow: acceptedRouteMatch.candidate.serviceWindow,
+          score: acceptedRouteMatch.candidate.score,
+          reason: acceptedRouteMatch.candidate.reason,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Route agent returned ${response.status}`);
+    }
+
+    const result = normaliseRouteAgentResponse(
+      (await response.json()) as Partial<RouteAgentResponse>,
+      routePlan,
+    );
+
+    if (result.source === "openrouter") {
+      return result;
+    }
+
+    fallbackResult = result;
+
+    if (attempt < liveAgentRequestAttempts - 1) {
+      await wait(liveAgentRetryDelayMs);
+    }
+  }
+
+  return fallbackResult ?? buildLocalRouteFallback(routePlan);
+}
 
 function getUpdatedTimeline(
   routePlan: SharedRoutePlan,
@@ -115,20 +245,65 @@ export function SharedRoutePage({
   onReceiptConfirmed: (batchId: string) => void;
 }) {
   const [isTracking, setIsTracking] = useState(false);
-  const routePlan = useMemo(
+  const [routeAgentResponse, setRouteAgentResponse] =
+    useState<RouteAgentResponse | null>(null);
+  const [isRouteAgentLoading, setIsRouteAgentLoading] = useState(false);
+  const acceptedBatch = acceptedRouteMatch?.batch;
+  const acceptedCandidate = acceptedRouteMatch?.candidate;
+  const baseRoutePlan = useMemo(
     () =>
-      acceptedRouteMatch
+      acceptedBatch && acceptedCandidate
         ? buildRoutePlanFromMatch(
-            acceptedRouteMatch.batch,
-            acceptedRouteMatch.candidate,
+            acceptedBatch,
+            acceptedCandidate,
           )
         : null,
-    [acceptedRouteMatch],
+    [acceptedBatch, acceptedCandidate],
   );
+  const routePlan = routeAgentResponse?.routePlan ?? baseRoutePlan;
 
   useEffect(() => {
     setIsTracking(false);
-  }, [routePlan?.id]);
+    setRouteAgentResponse(null);
+  }, [baseRoutePlan?.id]);
+
+  useEffect(() => {
+    if (!acceptedBatch || !acceptedCandidate || !baseRoutePlan) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    setIsRouteAgentLoading(true);
+
+    requestRouteAgent(baseRoutePlan, {
+      batch: acceptedBatch,
+      candidate: acceptedCandidate,
+    })
+      .then((response) => {
+        if (!isCancelled) {
+          setRouteAgentResponse(response);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setRouteAgentResponse(
+            buildLocalRouteFallback(
+              baseRoutePlan,
+              "Live FoodLoop AI was unavailable, so fallback demo data prepared this route explanation.",
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsRouteAgentLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [acceptedBatch, acceptedCandidate, baseRoutePlan]);
 
   const timeline = useMemo(
     () => (routePlan ? getUpdatedTimeline(routePlan, isReceiptConfirmed) : []),
@@ -204,6 +379,13 @@ export function SharedRoutePage({
         : `Confirm once the batch arrives at ${routePlan.ngoName}.`;
   const isActionComplete =
     activeRole === "donor" ? isTracking || isReceiptConfirmed : isReceiptConfirmed;
+  const routeAgentSourceLabel = isRouteAgentLoading
+    ? "Generating"
+    : routeAgentResponse?.source === "openrouter"
+      ? "Live FoodLoop AI"
+      : routeAgentResponse?.source === "fallback"
+        ? "Fallback demo data"
+        : `${routePlan.agent.confidence}% confidence`;
 
   const handlePrimaryAction = () => {
     if (activeRole === "donor") {
@@ -289,7 +471,7 @@ export function SharedRoutePage({
             id="route-agent-title"
             icon={Bot}
             title={routePlan.agent.agentName}
-            meta={`${routePlan.agent.confidence}% confidence`}
+            meta={routeAgentSourceLabel}
           />
 
           <div className="route-agent-copy">
@@ -318,6 +500,27 @@ export function SharedRoutePage({
               </li>
             ))}
           </ul>
+
+          <div className="route-agent-source-note">
+            <Bot size={16} aria-hidden="true" />
+            <span>
+              {isRouteAgentLoading
+                ? "Calling the Route Skill while preserving deterministic route facts."
+                : routeAgentResponse?.source === "openrouter"
+                  ? `Generated by Live FoodLoop AI${routeAgentResponse.model ? ` (model: ${routeAgentResponse.model})` : ""}.`
+                  : routeAgentResponse
+                    ? "Using fallback demo route explanation."
+                    : "Route Skill metadata pending."}
+            </span>
+          </div>
+
+          {routeAgentResponse ? (
+            <AIOutputViewer
+              source={routeAgentResponse.source}
+              modelOutput={routeAgentResponse.modelOutput}
+              skillMetadata={routeAgentResponse}
+            />
+          ) : null}
         </section>
 
         <section className="panel route-timeline-panel" aria-labelledby="route-timeline-title">

@@ -1,8 +1,16 @@
+import type {
+  AISkillMetadata,
+  AISkillTaggedResponse,
+  SkillId,
+} from "./ai/skillTypes";
+
 export type Role = "donor" | "ngo";
 
 export type AISource = "openrouter" | "fallback";
 
 export type AIModelOutput = Record<string, unknown>;
+
+export type AISkillId = SkillId;
 
 export type ScenarioId = "bakery" | "sandwiches" | "fruit";
 
@@ -81,7 +89,7 @@ export interface PhotoScenario {
   templateBatchId: string;
 }
 
-export interface IntakeAgentResponse {
+export interface IntakeAgentResponse extends AISkillTaggedResponse {
   draft: BatchDraft;
   recommendation: AgentRecommendation;
   forecast: ForecastSummary;
@@ -143,6 +151,11 @@ export interface MatchQueueBatch {
   aiSource?: AISource;
   aiModel?: string;
   modelOutput?: AIModelOutput;
+  skillId?: AISkillId;
+  skillName?: string;
+  skillVersion?: string;
+  guarded?: boolean;
+  supportingSkills?: AISkillMetadata[];
   scenarioId?: ScenarioId;
   recipientProgress: Array<{
     label: string;
@@ -150,7 +163,7 @@ export interface MatchQueueBatch {
   }>;
 }
 
-export interface MatchRankAgentResponse {
+export interface MatchRankAgentResponse extends AISkillTaggedResponse {
   candidates: NGOCandidate[];
   aiSummary: string;
   ngoFitExplanation: string;
@@ -186,13 +199,13 @@ export interface AIModalRequest {
   context: string[];
 }
 
-export interface AIModalResponse {
+export interface AIModalResponse extends AISkillTaggedResponse {
   title: string;
   intro: string;
   message: string;
   nextSteps: string[];
   confidenceNote: string;
-  source: "openrouter" | "fallback";
+  source: AISource;
   model?: string;
   modelOutput?: AIModelOutput;
 }
@@ -257,6 +270,40 @@ export interface SharedRoutePlan {
   agent: RouteAgentRecommendation;
 }
 
+export interface RouteAgentRequest {
+  routePlan: SharedRoutePlan;
+  batch: {
+    id?: string;
+    title?: string;
+    donorName?: string;
+    donorLocation?: string;
+    itemDescription?: string;
+    quantityLabel?: string;
+    packaging?: string;
+    pickupDeadline?: string;
+    storageEvidence?: string;
+    handlingPriority?: BatchDraft["handlingPriority"];
+  };
+  candidate: {
+    id?: string;
+    name?: string;
+    district?: string;
+    distanceKm?: number;
+    demandLabel?: string;
+    capacityLabel?: string;
+    serviceWindow?: string;
+    score?: number;
+    reason?: string;
+  };
+}
+
+export interface RouteAgentResponse extends AISkillTaggedResponse {
+  routePlan: SharedRoutePlan;
+  source: AISource;
+  model?: string;
+  modelOutput?: AIModelOutput;
+}
+
 export interface ImpactOverallTotals {
   foodRescuedKg: number;
   mealEquivalents: number;
@@ -290,7 +337,7 @@ export interface ImpactMetricDefinition {
   tone: ImpactSeriesDatum["tone"];
 }
 
-export interface ImpactAgentSummary {
+export interface ImpactAgentSummary extends AISkillTaggedResponse {
   title: string;
   intro: string;
   points: string[];

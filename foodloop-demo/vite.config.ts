@@ -1,6 +1,21 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 import type { Plugin } from "vite";
+import {
+  buildSkillMessages,
+  getSkillMetadata,
+} from "./src/ai/skillRegistry";
+import {
+  guardOperationalLanguage,
+  inferHandlingPriorityFromDraft,
+} from "./src/ai/guards";
+import type { AISkillTaggedResponse } from "./src/ai/skillTypes";
+import type {
+  RouteAgentRecommendation,
+  RouteAgentRequest,
+  RouteAgentResponse,
+  SharedRoutePlan,
+} from "./src/types";
 
 declare const process: {
   cwd: () => string;
@@ -79,7 +94,7 @@ interface IntakeAgentRequest {
   scenario?: IntakeScenarioPayload;
 }
 
-interface IntakeAgentResponse {
+interface IntakeAgentResponse extends AISkillTaggedResponse {
   draft: BatchDraft;
   recommendation: AgentRecommendation;
   forecast: ForecastSummary;
@@ -117,7 +132,7 @@ interface MatchRankAgentRequest {
   candidatePool?: NGOCandidate[];
 }
 
-interface MatchRankAgentResponse {
+interface MatchRankAgentResponse extends AISkillTaggedResponse {
   candidates: NGOCandidate[];
   aiSummary: string;
   ngoFitExplanation: string;
@@ -138,7 +153,7 @@ interface MatchingAgentRequest {
   context?: string[];
 }
 
-interface MatchingAgentResponse {
+interface MatchingAgentResponse extends AISkillTaggedResponse {
   title: string;
   intro: string;
   message: string;
@@ -171,7 +186,7 @@ interface ImpactAgentRequest {
   };
 }
 
-interface ImpactAgentResponse {
+interface ImpactAgentResponse extends AISkillTaggedResponse {
   title: string;
   intro: string;
   points: string[];
@@ -304,6 +319,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const asString = (value: unknown, fallback: string) =>
   typeof value === "string" && value.trim() ? value.trim() : fallback;
 
+const asOperationalString = (value: unknown, fallback: string) =>
+  guardOperationalLanguage(asString(value, fallback));
+
 const clampScore = (value: unknown, fallback: number) => {
   const numberValue = typeof value === "number" ? value : Number(value);
 
@@ -338,6 +356,12 @@ const normaliseStringArray = (
 
   return items.length > 0 ? items : fallback;
 };
+
+const normaliseOperationalStringArray = (
+  value: unknown,
+  fallback: string[],
+  maxItems = 4,
+) => normaliseStringArray(value, fallback, maxItems).map(guardOperationalLanguage);
 
 const firstArrayValue = (
   record: Record<string, unknown>,
@@ -537,22 +561,28 @@ const normaliseDraft = (value: unknown, fallback: BatchDraft): BatchDraft => {
   return {
     donorName: asString(draft.donorName, fallback.donorName),
     location: asString(draft.location, fallback.location),
-    category: asString(draft.category, fallback.category),
-    itemDescription: asString(draft.itemDescription, fallback.itemDescription),
+    category: asOperationalString(draft.category, fallback.category),
+    itemDescription: asOperationalString(
+      draft.itemDescription,
+      fallback.itemDescription,
+    ),
     quantity: asString(draft.quantity, fallback.quantity),
     unit: asString(draft.unit, fallback.unit),
-    packaging: asString(draft.packaging, fallback.packaging),
+    packaging: asOperationalString(draft.packaging, fallback.packaging),
     preparedTime: asString(draft.preparedTime, fallback.preparedTime),
     pickupDeadline: asString(draft.pickupDeadline, fallback.pickupDeadline),
     storageLocation: asString(draft.storageLocation, fallback.storageLocation),
-    temperatureStatus: asString(draft.temperatureStatus, fallback.temperatureStatus),
-    holdingStatus: asString(draft.holdingStatus, fallback.holdingStatus),
+    temperatureStatus: asOperationalString(
+      draft.temperatureStatus,
+      fallback.temperatureStatus,
+    ),
+    holdingStatus: asOperationalString(draft.holdingStatus, fallback.holdingStatus),
     sensorAttachment: asString(draft.sensorAttachment, fallback.sensorAttachment),
     handlingPriority: normaliseHandlingPriority(
       draft.handlingPriority,
       fallback.handlingPriority,
     ),
-    donorNotes: asString(draft.donorNotes, fallback.donorNotes),
+    donorNotes: asOperationalString(draft.donorNotes, fallback.donorNotes),
   };
 };
 
@@ -566,15 +596,15 @@ const normaliseRecommendation = (
   return {
     agentName: asString(recommendation.agentName, fallback.agentName),
     confidence: clampScore(recommendation.confidence, fallback.confidence),
-    extractedCategory: asString(
+    extractedCategory: asOperationalString(
       recommendation.extractedCategory,
       draft.category || fallback.extractedCategory,
     ),
-    extractedQuantity: asString(
+    extractedQuantity: asOperationalString(
       recommendation.extractedQuantity,
       `${draft.quantity} ${draft.unit}`.trim() || fallback.extractedQuantity,
     ),
-    extractedPackaging: asString(
+    extractedPackaging: asOperationalString(
       recommendation.extractedPackaging,
       draft.packaging || fallback.extractedPackaging,
     ),
@@ -586,7 +616,7 @@ const normaliseRecommendation = (
       recommendation.pickupDeadline,
       draft.pickupDeadline || fallback.pickupDeadline,
     ),
-    requiredConfirmation: asString(
+    requiredConfirmation: asOperationalString(
       recommendation.requiredConfirmation,
       fallback.requiredConfirmation,
     ),
@@ -594,7 +624,7 @@ const normaliseRecommendation = (
       recommendation.handlingPriority,
       draft.handlingPriority,
     ),
-    summary: asString(recommendation.summary, fallback.summary),
+    summary: asOperationalString(recommendation.summary, fallback.summary),
   };
 };
 
@@ -605,9 +635,9 @@ const normaliseForecast = (
   const forecast = isRecord(value) ? value : {};
 
   return {
-    predictedBand: asString(forecast.predictedBand, fallback.predictedBand),
-    likelyWindow: asString(forecast.likelyWindow, fallback.likelyWindow),
-    patternBasis: asString(forecast.patternBasis, fallback.patternBasis),
+    predictedBand: asOperationalString(forecast.predictedBand, fallback.predictedBand),
+    likelyWindow: asOperationalString(forecast.likelyWindow, fallback.likelyWindow),
+    patternBasis: asOperationalString(forecast.patternBasis, fallback.patternBasis),
     confidence: clampScore(forecast.confidence, fallback.confidence),
   };
 };
@@ -621,7 +651,7 @@ const normaliseSensorEvidence = (
   return {
     storageLocation: asString(sensor.storageLocation, fallback.storageLocation),
     temperature: asString(sensor.temperature, fallback.temperature),
-    holdingStatus: asString(sensor.holdingStatus, fallback.holdingStatus),
+    holdingStatus: asOperationalString(sensor.holdingStatus, fallback.holdingStatus),
     sensorAttachment: asString(sensor.sensorAttachment, fallback.sensorAttachment),
     lastReadingAt: asString(sensor.lastReadingAt, fallback.lastReadingAt),
   };
@@ -644,6 +674,7 @@ const fallbackIntakeResponse = (
     forecast: scenarioFallback.forecast,
     sensorEvidence: scenarioFallback.sensorEvidence,
     source: "fallback",
+    ...getSkillMetadata("intake", ["handling-risk", "forecast"]),
   };
 };
 
@@ -658,14 +689,23 @@ const normaliseIntakeResponse = (
 
   const fallback = getScenarioFallback(scenario);
   const draft = normaliseDraft(value.draft, fallback.fallbackDraft);
+  const guardedHandlingPriority = inferHandlingPriorityFromDraft(draft);
+  const guardedDraft = {
+    ...draft,
+    handlingPriority: guardedHandlingPriority,
+  };
+  const recommendation = normaliseRecommendation(
+    value.recommendation,
+    fallback.fallbackRecommendation,
+    guardedDraft,
+  );
 
   return {
-    draft,
-    recommendation: normaliseRecommendation(
-      value.recommendation,
-      fallback.fallbackRecommendation,
-      draft,
-    ),
+    draft: guardedDraft,
+    recommendation: {
+      ...recommendation,
+      handlingPriority: guardedHandlingPriority,
+    },
     forecast: normaliseForecast(value.forecast, fallback.forecast),
     sensorEvidence: normaliseSensorEvidence(
       value.sensorEvidence,
@@ -673,6 +713,7 @@ const normaliseIntakeResponse = (
     ),
     source: "openrouter",
     model,
+    ...getSkillMetadata("intake", ["handling-risk", "forecast"]),
   };
 };
 
@@ -736,6 +777,7 @@ const fallbackMatchRankResponse = (
     routePreview:
       "Likely pickup route will be generated after the recipient accepts the batch.",
     source: "fallback",
+    ...getSkillMetadata("matching", ["handling-risk"]),
   };
 };
 
@@ -835,14 +877,14 @@ const normaliseMatchRankResponse = (
         candidateRecord.factors ?? nestedCandidate.factors,
         knownCandidate.factors,
       ),
-      reason: asString(
+      reason: asOperationalString(
         candidateRecord.reason ??
           candidateRecord.explanation ??
           nestedCandidate.reason ??
           nestedCandidate.explanation,
         knownCandidate.reason,
       ),
-      progressStatus: asString(
+      progressStatus: asOperationalString(
         candidateRecord.progressStatus ?? candidateRecord.status,
         knownCandidate.progressStatus,
       ),
@@ -864,15 +906,16 @@ const normaliseMatchRankResponse = (
 
   return {
     candidates: rankedCandidates,
-    aiSummary: asString(value.aiSummary ?? value.summary, fallback.aiSummary),
-    ngoFitExplanation: asString(
+    aiSummary: asOperationalString(value.aiSummary ?? value.summary, fallback.aiSummary),
+    ngoFitExplanation: asOperationalString(
       value.ngoFitExplanation ?? value.fitExplanation ?? value.explanation,
       fallback.ngoFitExplanation,
     ),
-    handlingNotes: asString(value.handlingNotes, fallback.handlingNotes),
-    routePreview: asString(value.routePreview, fallback.routePreview),
+    handlingNotes: asOperationalString(value.handlingNotes, fallback.handlingNotes),
+    routePreview: asOperationalString(value.routePreview, fallback.routePreview),
     source: "openrouter",
     model,
+    ...getSkillMetadata("matching", ["handling-risk"]),
   };
 };
 
@@ -885,6 +928,7 @@ const fallbackResponse = (
     ? `${fallbackModalCopy[action].confidenceNote} ${detail}`
     : fallbackModalCopy[action].confidenceNote,
   source: "fallback",
+  ...getSkillMetadata("communication"),
 });
 
 const normaliseModalResponse = (
@@ -899,13 +943,14 @@ const normaliseModalResponse = (
   const fallback = fallbackResponse(action);
 
   return {
-    title: asString(value.title, fallback.title),
-    intro: asString(value.intro, fallback.intro),
-    message: asString(value.message, fallback.message),
-    nextSteps: normaliseStringArray(value.nextSteps, fallback.nextSteps, 3),
-    confidenceNote: asString(value.confidenceNote, fallback.confidenceNote),
+    title: asOperationalString(value.title, fallback.title),
+    intro: asOperationalString(value.intro, fallback.intro),
+    message: asOperationalString(value.message, fallback.message),
+    nextSteps: normaliseOperationalStringArray(value.nextSteps, fallback.nextSteps, 3),
+    confidenceNote: asOperationalString(value.confidenceNote, fallback.confidenceNote),
     source: "openrouter",
     model,
+    ...getSkillMetadata("communication"),
   };
 };
 
@@ -914,6 +959,7 @@ const fallbackImpactAgentResponse = (detail?: string): ImpactAgentResponse => ({
   caveat: detail
     ? `${fallbackImpactResponse.caveat} ${detail}`
     : fallbackImpactResponse.caveat,
+  ...getSkillMetadata("impact"),
 });
 
 const normaliseImpactResponse = (
@@ -925,12 +971,104 @@ const normaliseImpactResponse = (
   }
 
   return {
-    title: asString(value.title, fallbackImpactResponse.title),
-    intro: asString(value.intro, fallbackImpactResponse.intro),
-    points: normaliseStringArray(value.points, fallbackImpactResponse.points, 4),
-    caveat: asString(value.caveat, fallbackImpactResponse.caveat),
+    title: asOperationalString(value.title, fallbackImpactResponse.title),
+    intro: asOperationalString(value.intro, fallbackImpactResponse.intro),
+    points: normaliseOperationalStringArray(
+      value.points,
+      fallbackImpactResponse.points,
+      4,
+    ),
+    caveat: asOperationalString(value.caveat, fallbackImpactResponse.caveat),
     source: "openrouter",
     model,
+    ...getSkillMetadata("impact"),
+  };
+};
+
+const isSharedRoutePlan = (value: unknown): value is SharedRoutePlan =>
+  isRecord(value) &&
+  typeof value.id === "string" &&
+  typeof value.batchId === "string" &&
+  isRecord(value.agent) &&
+  Array.isArray(value.stops) &&
+  Array.isArray(value.timeline);
+
+const withGuardedRouteAgent = (
+  routePlan: SharedRoutePlan,
+  agentValue?: Partial<RouteAgentRecommendation>,
+  detail?: string,
+): SharedRoutePlan => {
+  const fallbackAgent = routePlan.agent;
+  const summary = asOperationalString(agentValue?.summary, fallbackAgent.summary);
+
+  return {
+    ...routePlan,
+    agent: {
+      ...fallbackAgent,
+      agentName: asString(agentValue?.agentName, "FoodLoop Route AI"),
+      confidence: clampScore(agentValue?.confidence, fallbackAgent.confidence),
+      etaLabel: routePlan.etaLabel,
+      pickupWindow: routePlan.pickupWindow,
+      statusLabel: routePlan.slaStatus,
+      summary: detail ? `${summary} ${detail}` : summary,
+      reasons: normaliseOperationalStringArray(
+        agentValue?.reasons,
+        fallbackAgent.reasons,
+        3,
+      ),
+    },
+  };
+};
+
+const fallbackRouteAgentResponse = (
+  request: RouteAgentRequest,
+  detail?: string,
+): RouteAgentResponse => ({
+  routePlan: withGuardedRouteAgent(request.routePlan, request.routePlan.agent, detail),
+  source: "fallback",
+  ...getSkillMetadata("route"),
+});
+
+const normaliseRouteAgentResponse = (
+  value: unknown,
+  request: RouteAgentRequest,
+  model: string,
+): RouteAgentResponse | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const agentRecord = isRecord(value.agent) ? value.agent : value;
+  const hasLiveNarrative = [agentRecord.summary, agentRecord.reasons].some((item) =>
+    Array.isArray(item)
+      ? item.some((nestedItem) => typeof nestedItem === "string" && Boolean(nestedItem.trim()))
+      : typeof item === "string" && Boolean(item.trim()),
+  );
+
+  if (!hasLiveNarrative) {
+    return null;
+  }
+
+  return {
+    routePlan: withGuardedRouteAgent(request.routePlan, {
+      agentName: asString(agentRecord.agentName, "FoodLoop Route AI"),
+      confidence: clampScore(agentRecord.confidence, request.routePlan.agent.confidence),
+      etaLabel: request.routePlan.etaLabel,
+      pickupWindow: request.routePlan.pickupWindow,
+      statusLabel: request.routePlan.slaStatus,
+      summary: asOperationalString(
+        agentRecord.summary,
+        request.routePlan.agent.summary,
+      ),
+      reasons: normaliseOperationalStringArray(
+        agentRecord.reasons,
+        request.routePlan.agent.reasons,
+        3,
+      ),
+    }),
+    source: "openrouter",
+    model,
+    ...getSkillMetadata("route"),
   };
 };
 
@@ -979,21 +1117,13 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             apiKey,
             model,
             temperature: 0.18,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are FoodLoop's Intake Agent for a pitch demo. Return only valid JSON with draft, recommendation, forecast, and sensorEvidence. The draft must use donor-observed handling recommendations only, never certification or verdict wording. handlingPriority must be exactly one of: Low handling risk, Needs confirmation, Short window.",
+            messages: buildSkillMessages({
+              skillId: "intake",
+              supportingSkillIds: ["handling-risk", "forecast"],
+              context: {
+                scenario: payload.scenario,
               },
-              {
-                role: "user",
-                content: JSON.stringify({
-                  task:
-                    "Create a donor-editable intake draft from this selected photo scenario.",
-                  scenario: payload.scenario,
-                }),
-              },
-            ],
+            }),
             normalise: (value) =>
               normaliseIntakeResponse(value, payload.scenario, model),
             invalidDetail:
@@ -1061,34 +1191,26 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             apiKey,
             model,
             temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are FoodLoop's Matching Agent. Return only valid JSON with candidates, aiSummary, ngoFitExplanation, handlingNotes, and routePreview. candidates must be an array of objects, and every object must include the exact id from allowedCandidateIds. You may only rank candidate IDs supplied by the user. Do not invent NGOs, workflow states, safety verdicts, or unsafe labels. Scores and factor values must be integers from 0 to 100.",
+            messages: buildSkillMessages({
+              skillId: "matching",
+              supportingSkillIds: ["handling-risk"],
+              context: {
+                batchDraft: payload.batchDraft,
+                scenario: payload.scenario
+                  ? {
+                      id: payload.scenario.id,
+                      title: payload.scenario.title,
+                      donorName: payload.scenario.donorName,
+                      location: payload.scenario.location,
+                      categoryHint: payload.scenario.categoryHint,
+                    }
+                  : undefined,
+                allowedCandidateIds: cloneCandidatePool(payload.candidatePool).map(
+                  (candidate) => candidate.id,
+                ),
+                candidatePool: payload.candidatePool,
               },
-              {
-                role: "user",
-                content: JSON.stringify({
-                  task:
-                    "Rank the known NGO candidates for this donor-confirmed batch.",
-                  batchDraft: payload.batchDraft,
-                  scenario: payload.scenario
-                    ? {
-                        id: payload.scenario.id,
-                        title: payload.scenario.title,
-                        donorName: payload.scenario.donorName,
-                        location: payload.scenario.location,
-                        categoryHint: payload.scenario.categoryHint,
-                      }
-                    : undefined,
-                  allowedCandidateIds: cloneCandidatePool(payload.candidatePool).map(
-                    (candidate) => candidate.id,
-                  ),
-                  candidatePool: payload.candidatePool,
-                }),
-              },
-            ],
+            }),
             normalise: (value) =>
               normaliseMatchRankResponse(value, payload, model),
             invalidDetail:
@@ -1153,23 +1275,13 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             apiKey,
             model,
             temperature: 0.25,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are FoodLoop's Matching Agent for a pitch demo. Return only valid JSON with title, intro, message, nextSteps, and confidenceNote. Keep wording concise, operational, and human-confirmed. Use handling and review language, not certification verdict wording.",
+            messages: buildSkillMessages({
+              skillId: "communication",
+              context: {
+                action,
+                payload,
               },
-              {
-                role: "user",
-                content: JSON.stringify({
-                  task:
-                    action === "request-info"
-                      ? "Draft an NGO-to-donor information request."
-                      : "Draft an NGO decline and reroute note.",
-                  payload,
-                }),
-              },
-            ],
+            }),
             normalise: (value) => normaliseModalResponse(value, action, model),
             invalidDetail:
               "Live FoodLoop AI returned an incomplete draft; using fallback demo data.",
@@ -1188,6 +1300,81 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             200,
             fallbackResponse(
               action,
+              "Live FoodLoop AI request failed or timed out; using fallback demo data.",
+            ),
+          );
+        }
+      });
+
+      server.middlewares.use("/api/route-agent", async (request, response) => {
+        const devRequest = request as DevRequest;
+        const devResponse = response as DevResponse;
+
+        if (devRequest.method !== "POST") {
+          devResponse.statusCode = 405;
+          devResponse.setHeader("Allow", "POST");
+          devResponse.end("Method Not Allowed");
+          return;
+        }
+
+        let payload: RouteAgentRequest;
+
+        try {
+          payload = await parseRequestPayload<RouteAgentRequest>(devRequest);
+        } catch {
+          sendJson(devResponse, 400, { error: "Invalid JSON body" });
+          return;
+        }
+
+        if (!isSharedRoutePlan(payload.routePlan)) {
+          sendJson(devResponse, 400, { error: "Route plan is required" });
+          return;
+        }
+
+        if (!apiKey) {
+          sendJson(
+            devResponse,
+            200,
+            fallbackRouteAgentResponse(
+              payload,
+              "Live FoodLoop AI is not configured for this local session; using fallback demo data.",
+            ),
+          );
+          return;
+        }
+
+        try {
+          const result = await requestNormalisedOpenRouterJson({
+            apiKey,
+            model,
+            temperature: 0.18,
+            messages: buildSkillMessages({
+              skillId: "route",
+              context: {
+                routePlan: payload.routePlan,
+                batch: payload.batch,
+                candidate: payload.candidate,
+              },
+            }),
+            normalise: (value) =>
+              normaliseRouteAgentResponse(value, payload, model),
+            invalidDetail:
+              "Live FoodLoop AI returned an incomplete route recommendation; using fallback demo data.",
+          });
+
+          sendJson(
+            devResponse,
+            200,
+            result.ok
+              ? { ...result.response, modelOutput: result.modelOutput }
+              : fallbackRouteAgentResponse(payload, result.detail),
+          );
+        } catch {
+          sendJson(
+            devResponse,
+            200,
+            fallbackRouteAgentResponse(
+              payload,
               "Live FoodLoop AI request failed or timed out; using fallback demo data.",
             ),
           );
@@ -1230,21 +1417,12 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             apiKey,
             model,
             temperature: 0.22,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are FoodLoop's Impact Agent. Return only valid JSON with title, intro, points, and caveat. The handoff is confirmed by an NGO, but all impact values are demo estimates and must not be described as audited measurement.",
+            messages: buildSkillMessages({
+              skillId: "impact",
+              context: {
+                payload,
               },
-              {
-                role: "user",
-                content: JSON.stringify({
-                  task:
-                    "Summarize the confirmed rescue handoff for a pitch demo impact panel.",
-                  payload,
-                }),
-              },
-            ],
+            }),
             normalise: (value) => normaliseImpactResponse(value, model),
             invalidDetail:
               "Live FoodLoop AI returned an incomplete impact summary; using fallback demo data.",

@@ -19,6 +19,7 @@ import type {
   SensorEvidence,
   SharedRoutePlan,
 } from "./types";
+import { getSkillMetadata } from "./ai/skillRegistry";
 import bakeryPhoto from "./assets/wan-chai-bakery-surplus.png";
 import sandwichPhoto from "./assets/chilled-sandwich-surplus.png";
 import fruitPhoto from "./assets/tai-kok-tsui-fruit-boxes.png";
@@ -69,9 +70,9 @@ export const pageMeta: Array<{
   },
   {
     id: "architecture",
-    label: "Architecture",
+    label: "AI Skills",
     path: "/architecture",
-    status: "Develop later",
+    status: "Prompt showcase",
   },
 ];
 
@@ -339,6 +340,7 @@ export const impactAgentSummary: ImpactAgentSummary = {
   caveat:
     "All current-pickup impact values use deterministic demo formulas for pitch clarity.",
   source: "fallback",
+  ...getSkillMetadata("impact"),
 };
 
 export const ngoPreviewRows = [
@@ -362,7 +364,7 @@ export const ngoPreviewRows = [
   },
 ];
 
-export const matchQueueBatches: MatchQueueBatch[] = [
+export const matchQueueBatches: MatchQueueBatch[] = ([
   {
     id: "FL-WC-0625-014",
     title: "Bakery surplus",
@@ -639,7 +641,11 @@ export const matchQueueBatches: MatchQueueBatch[] = [
       { label: "Route pending", status: "waiting" },
     ],
   },
-];
+] satisfies MatchQueueBatch[]).map((batch): MatchQueueBatch => ({
+  ...batch,
+  aiSource: "fallback",
+  ...getSkillMetadata("matching", ["handling-risk"]),
+}));
 
 export const photoScenarios: PhotoScenario[] = [
   {
@@ -780,6 +786,7 @@ export const buildFallbackMatchRankResponse = (
           : "Packaging and pickup timing look operationally straightforward, pending human confirmation.",
     routePreview: template.routePreview,
     source: "fallback",
+    ...getSkillMetadata("matching", ["handling-risk"]),
   };
 };
 
@@ -836,6 +843,11 @@ export function buildGeneratedBatchFromDraft({
     aiSource: matchResponse.source,
     aiModel: matchResponse.model,
     modelOutput: matchResponse.modelOutput,
+    skillId: matchResponse.skillId,
+    skillName: matchResponse.skillName,
+    skillVersion: matchResponse.skillVersion,
+    guarded: matchResponse.guarded,
+    supportingSkills: matchResponse.supportingSkills,
     scenarioId: scenario.id,
     recipientProgress: [
       { label: "Submitted", status: "done" },

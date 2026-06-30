@@ -9,5 +9,6 @@ output/
 .env.production.local
 .env.*.local
 *.tsbuildinfo
+.tsbuild/
 vite.config.d.ts
 vite.config.js

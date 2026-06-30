@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   Check,
+  CheckCircle2,
   ClipboardCheck,
   Cpu,
   FileText,
@@ -39,9 +40,14 @@ import {
   matchQueueBatches,
   pageMeta,
   photoScenarios,
-  stubContent,
 } from "./data";
 import { AIOutputViewer } from "./AIOutputViewer";
+import {
+  aiSkillList,
+  aiSkillRegistry,
+  getSkillMetadata,
+  skillFlow,
+} from "./ai/skillRegistry";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
 import { SharedImpactPage } from "./SharedImpactPage";
 import { SharedRoutePage } from "./SharedRoutePage";
@@ -155,6 +161,7 @@ const getScenarioFallbackIntake = (
   forecast: scenario.forecast,
   sensorEvidence: scenario.sensorEvidence,
   source: "fallback",
+  ...getSkillMetadata("intake", ["handling-risk", "forecast"]),
 });
 
 const normaliseIntakeResponse = (
@@ -189,6 +196,11 @@ const normaliseIntakeResponse = (
     source,
     model: value.model,
     modelOutput: source === "openrouter" ? value.modelOutput : undefined,
+    skillId: value.skillId,
+    skillName: value.skillName,
+    skillVersion: value.skillVersion,
+    guarded: value.guarded,
+    supportingSkills: value.supportingSkills,
   };
 };
 
@@ -267,6 +279,11 @@ async function requestMatchRanking(
       source,
       model: value.model,
       modelOutput: source === "openrouter" ? value.modelOutput : undefined,
+      skillId: value.skillId,
+      skillName: value.skillName,
+      skillVersion: value.skillVersion,
+      guarded: value.guarded,
+      supportingSkills: value.supportingSkills,
     };
 
     if (result.source === "openrouter") {
@@ -460,7 +477,7 @@ function App() {
         />
         <Route
           path="/architecture"
-          element={<StubPage pageId="architecture" activeRole={activeRole} />}
+          element={<AISkillsPage activeRole={activeRole} />}
         />
         <Route path="*" element={<Navigate to="/intake" replace />} />
       </Routes>
@@ -808,6 +825,7 @@ function DonorIntakePage({
             intakeSource={intakeSource}
             intakeModel={intakeModel}
             modelOutput={intakeResult?.modelOutput}
+            skillMetadata={intakeResult}
             onFieldChange={handleFieldChange}
             onValueChange={handleDraftValueChange}
             onContinue={handleContinueToConfirm}
@@ -1136,6 +1154,7 @@ function ReviewStagePanel({
   intakeSource,
   intakeModel,
   modelOutput,
+  skillMetadata,
   onFieldChange,
   onValueChange,
   onContinue,
@@ -1148,6 +1167,7 @@ function ReviewStagePanel({
   intakeSource: AISource | null;
   intakeModel?: string;
   modelOutput?: IntakeAgentResponse["modelOutput"];
+  skillMetadata?: IntakeAgentResponse | null;
   onFieldChange: (
     field: keyof BatchDraft,
   ) => (
@@ -1193,7 +1213,11 @@ function ReviewStagePanel({
         </p>
       </div>
       {intakeSource ? (
-        <AIOutputViewer source={intakeSource} modelOutput={modelOutput} />
+        <AIOutputViewer
+          source={intakeSource}
+          modelOutput={modelOutput}
+          skillMetadata={skillMetadata}
+        />
       ) : null}
 
       <div className="evidence-chip-grid" aria-label="Forecast and evidence">
@@ -1784,57 +1808,152 @@ function TextAreaField({
   );
 }
 
-function StubPage({
-  pageId,
-  activeRole,
-}: {
-  pageId: Exclude<DemoPageId, "intake">;
-  activeRole: Role;
-}) {
-  const content = stubContent[pageId];
-  const Icon = pageIcons[pageId];
-
+function AISkillsPage({ activeRole }: { activeRole: Role }) {
   return (
-    <section className="page-stack" aria-labelledby={`${pageId}-title`}>
-      <div className="page-heading stub-heading">
+    <section className="page-stack ai-skills-page" aria-labelledby="ai-skills-title">
+      <div className="page-heading ai-skills-heading">
         <div>
-          <p className="page-kicker">Develop later</p>
-          <h1 id={`${pageId}-title`}>{content.title}</h1>
-          <p>{content.summary}</p>
+          <p className="page-kicker">Runtime prompt showcase</p>
+          <h1 id="ai-skills-title">AI Skills</h1>
+          <p>
+            Seven named runtime skills power FoodLoop AI outputs, with typed
+            normalizers and deterministic rules guarding handling labels, route
+            facts, candidate IDs, and demo impact metrics.
+          </p>
         </div>
-        <div className="heading-meta">
+        <div className="heading-meta" aria-label="AI skill page summary">
           <span>{activeRole === "donor" ? "Donor role" : "NGO role"}</span>
-          <span>Wan Chai demo data</span>
+          <span>{aiSkillList.length} skills</span>
+          <span>OpenRouter v1</span>
         </div>
       </div>
 
-      <div className="stub-grid">
-        <section className="panel stub-hero" aria-label={`${content.title} plan`}>
-          <Icon size={42} aria-hidden="true" />
-          <div>
-            <h2>Polished stub ready for the next pass</h2>
-            <p>
-              The navigation, role switcher, and page route are live. This page is
-              intentionally reserved while Donor Intake gets the full workflow.
-            </p>
-          </div>
-          <Link to="/intake" className="button button-secondary">
-            <ClipboardCheck size={17} aria-hidden="true" />
-            Back to Intake
-          </Link>
-        </section>
-
-        <div className="stub-card-grid">
-          {content.cards.map((card) => (
-            <article key={card.label} className="panel stub-card">
-              <span>{card.label}</span>
-              <strong>{card.value}</strong>
-              <p>{card.note}</p>
-            </article>
-          ))}
+      <section className="panel skill-flow-panel" aria-labelledby="skill-flow-title">
+        <div>
+          <h2 id="skill-flow-title">Skill flow</h2>
+          <p>
+            Rules and app data guard the operational facts; model text stays in
+            explainable, human-confirmed decision support.
+          </p>
         </div>
+        <ol className="skill-flow-list" aria-label="FoodLoop AI skill flow">
+          {skillFlow.map((skillId, index) => {
+            const skill = aiSkillRegistry[skillId];
+
+            return (
+              <li key={skill.id}>
+                <span>{index + 1}</span>
+                <strong>{skill.label.replace(" Skill", "")}</strong>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <div className="skill-card-grid">
+        {aiSkillList.map((skill) => (
+          <article key={skill.id} className="panel skill-card">
+            <div className="skill-card-heading">
+              <div>
+                <span className="skill-id">{skill.id}</span>
+                <h2>{skill.label}</h2>
+              </div>
+              <span
+                className={
+                  skill.status === "live"
+                    ? "source-badge source-badge-live"
+                    : "source-badge"
+                }
+              >
+                {skill.status === "live" ? "Live" : "Simulated"}
+              </span>
+            </div>
+
+            <p className="skill-purpose">{skill.purpose}</p>
+
+            <dl className="skill-fact-grid">
+              <div>
+                <dt>Input</dt>
+                <dd>{skill.inputSummary}</dd>
+              </div>
+              <div>
+                <dt>Output</dt>
+                <dd>{skill.outputSummary}</dd>
+              </div>
+              <div>
+                <dt>Guardrail</dt>
+                <dd>{skill.guardrailSummary}</dd>
+              </div>
+              <div>
+                <dt>Human check</dt>
+                <dd>{skill.humanConfirmationPoint}</dd>
+              </div>
+            </dl>
+
+            <div className="skill-provider-row">
+              <Badge tone={skill.status === "live" ? "routing" : "review"}>
+                {skill.provider}
+              </Badge>
+              <span>{skill.version}</span>
+            </div>
+
+            <div className="skill-details-stack">
+              <SkillPromptDetails
+                title="System prompt"
+                content={skill.systemPrompt}
+              />
+              <SkillPromptDetails
+                title="User prompt template"
+                content={skill.userPromptTemplate}
+              />
+              <details className="skill-prompt-details">
+                <summary>Few-shot examples</summary>
+                <div className="skill-examples">
+                  {skill.examples.map((example) => (
+                    <section key={example.title}>
+                      <h3>{example.title}</h3>
+                      <pre tabIndex={0}>
+                        <code>{`Input:\n${example.input}\n\nOutput:\n${example.output}`}</code>
+                      </pre>
+                    </section>
+                  ))}
+                </div>
+              </details>
+            </div>
+          </article>
+        ))}
       </div>
+
+      <section className="panel skill-review-note" aria-labelledby="skill-review-title">
+        <CheckCircle2 size={20} aria-hidden="true" />
+        <div>
+          <h2 id="skill-review-title">Competition review posture</h2>
+          <p>
+            Prompt definitions, runtime API calls, and the submission dossier use
+            the same skill registry content. Models may propose language, but
+            TypeScript guards preserve candidate pools, route facts, handling
+            labels, and deterministic demo estimates.
+          </p>
+        </div>
+      </section>
     </section>
+  );
+}
+
+function SkillPromptDetails({
+  title,
+  content,
+}: {
+  title: string;
+  content: string;
+}) {
+  return (
+    <details className="skill-prompt-details">
+      <summary>{title}</summary>
+      <pre tabIndex={0}>
+        <code>{content}</code>
+      </pre>
+    </details>
   );
 }
 

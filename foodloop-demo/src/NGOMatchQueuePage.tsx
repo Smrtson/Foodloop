@@ -22,6 +22,7 @@ import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AIOutputViewer } from "./AIOutputViewer";
+import { getSkillMetadata } from "./ai/skillRegistry";
 import { fallbackAIModalCopy } from "./data";
 import type {
   AISource,
@@ -86,6 +87,7 @@ function getFallbackResponse(action: AIModalAction): AIModalResponse {
   return {
     ...fallbackAIModalCopy[action],
     source: "fallback",
+    ...getSkillMetadata("communication"),
   };
 }
 
@@ -160,6 +162,11 @@ function normaliseModalResponse(
     source,
     model: value.model,
     modelOutput: source === "openrouter" ? value.modelOutput : undefined,
+    skillId: value.skillId,
+    skillName: value.skillName,
+    skillVersion: value.skillVersion,
+    guarded: value.guarded,
+    supportingSkills: value.supportingSkills,
   };
 }
 
@@ -593,7 +600,11 @@ function MatchingAgentPanel({
       </div>
 
       {batch.aiSource ? (
-        <AIOutputViewer source={batch.aiSource} modelOutput={batch.modelOutput} />
+        <AIOutputViewer
+          source={batch.aiSource}
+          modelOutput={batch.modelOutput}
+          skillMetadata={batch}
+        />
       ) : null}
     </section>
   );
@@ -894,6 +905,7 @@ function AIAgentModal({
             <AIOutputViewer
               source={response.source}
               modelOutput={response.modelOutput}
+              skillMetadata={response}
             />
           </>
         )}

@@ -1054,6 +1054,27 @@ a {
   padding: 10px;
 }
 
+.ai-skill-metadata {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-skill-metadata span {
+  min-height: 23px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-blue-200);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-blue-700);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
 .ai-output-toolbar {
   min-width: 0;
   display: flex;
@@ -1530,6 +1551,246 @@ a {
   color: var(--color-slate-900);
   font-size: 16px;
   line-height: 1.25;
+}
+
+.ai-skills-page {
+  gap: 12px;
+}
+
+.ai-skills-heading {
+  align-items: flex-start;
+}
+
+.skill-flow-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.skill-flow-panel h2,
+.skill-review-note h2 {
+  margin: 0 0 4px;
+  color: var(--color-slate-900);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.skill-flow-panel p,
+.skill-purpose,
+.skill-review-note p {
+  margin: 0;
+  color: var(--color-slate-600);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.skill-flow-list {
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+  padding: 0;
+}
+
+.skill-flow-list li {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-slate-50);
+  padding: 8px 5px;
+  text-align: center;
+}
+
+.skill-flow-list span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-green-700);
+  color: var(--color-white);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.skill-flow-list strong {
+  min-width: 0;
+  color: var(--color-slate-700);
+  font-size: 11px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.skill-card-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skill-card {
+  display: grid;
+  gap: 12px;
+}
+
+.skill-card-heading,
+.skill-provider-row {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.skill-card-heading > div {
+  min-width: 0;
+}
+
+.skill-id {
+  display: block;
+  color: var(--color-green-700);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.skill-card h2 {
+  margin: 2px 0 0;
+  color: var(--color-slate-900);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.skill-fact-grid {
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skill-fact-grid div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-slate-50);
+  padding: 9px;
+}
+
+.skill-fact-grid dt {
+  color: var(--color-slate-500);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.skill-fact-grid dd {
+  margin: 0;
+  color: var(--color-slate-700);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.skill-provider-row {
+  align-items: center;
+  color: var(--color-slate-500);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.skill-details-stack {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.skill-prompt-details {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-slate-50);
+}
+
+.skill-prompt-details summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--color-slate-800);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.skill-prompt-details summary:focus-visible,
+.skill-prompt-details pre:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.skill-prompt-details pre {
+  max-height: 300px;
+  min-width: 0;
+  overflow: auto;
+  margin: 0;
+  border-top: 1px solid var(--color-slate-200);
+  background: var(--color-slate-900);
+  color: var(--color-slate-50);
+  padding: 10px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.skill-examples {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--color-slate-200);
+  padding: 8px;
+}
+
+.skill-examples section {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.skill-examples h3 {
+  margin: 0;
+  color: var(--color-slate-700);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.skill-examples pre {
+  border-top: 0;
+  border-radius: var(--radius-md);
+}
+
+.skill-review-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border-color: var(--color-green-200);
+  background: var(--color-green-50);
+}
+
+.skill-review-note svg {
+  color: var(--color-green-700);
 }
 
 .match-page {
@@ -2793,6 +3054,26 @@ textarea:focus-visible {
   color: var(--color-green-700);
 }
 
+.route-agent-source-note {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-slate-50);
+  color: var(--color-slate-600);
+  padding: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.route-agent-source-note svg {
+  color: var(--color-blue-600);
+}
+
 .route-timeline {
   list-style: none;
   margin: 0;
@@ -3732,6 +4013,8 @@ textarea:focus-visible {
 
   .intake-stage-layout,
   .stub-card-grid,
+  .skill-card-grid,
+  .skill-flow-panel,
   .match-workspace-grid,
   .match-overview-strip,
   .route-overview-strip,
@@ -3772,6 +4055,10 @@ textarea:focus-visible {
 
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .skill-flow-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -3870,6 +4157,8 @@ textarea:focus-visible {
   .intake-progress,
   .scenario-card-grid,
   .evidence-chip-grid,
+  .skill-card-grid,
+  .skill-fact-grid,
   .summary-grid,
   .confirm-actions,
   .batch-summary-grid,
@@ -3890,6 +4179,8 @@ textarea:focus-visible {
   .capture-title-row,
   .panel-title,
   .form-header,
+  .skill-card-heading,
+  .skill-provider-row,
   .match-panel-heading,
   .route-panel-heading,
   .recipient-snapshot,
@@ -3911,6 +4202,10 @@ textarea:focus-visible {
 
   .ai-output-copy-button {
     width: 100%;
+  }
+
+  .skill-flow-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .route-map-shell {

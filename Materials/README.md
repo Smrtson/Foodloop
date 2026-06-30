@@ -36,13 +36,30 @@ npm run preview
 5. After acceptance, open Shared Route and confirm receipt.
 6. Open Shared Impact for the receipt-level summary and demo metrics.
 
+## Runtime AI Skills
+
+FoodLoop uses seven named runtime AI skills:
+
+- `intake`: photo/scenario/text to donor-editable batch draft.
+- `handling-risk`: handling priority and missing-confirmation logic.
+- `forecast`: predicted surplus band and likely pickup window.
+- `matching`: NGO candidate ranking and match explanation.
+- `communication`: NGO request-info / decline / reroute copy.
+- `route`: route recommendation, ETA explanation, pickup window narrative.
+- `impact`: confirmed rescue summary and ESG/community wording.
+
+The `/architecture` route is now the AI Skills page. It shows skill cards,
+prompt expanders, live/simulated status, guardrails, and human confirmation
+points. The reviewer prompt dossier is `Materials/FoodLoop AI Skill Prompts.md`.
+
 ## Live AI And Fallbacks
 
-- `/api/intake-agent`, `/api/match-rank-agent`, `/api/matching-agent`, and `/api/impact-agent` are local Vite dev middleware routes.
+- `/api/intake-agent`, `/api/match-rank-agent`, `/api/matching-agent`, `/api/route-agent`, and `/api/impact-agent` are local Vite dev middleware routes.
 - When `OPENROUTER_API_KEY` is present, those routes call OpenRouter and return `source: "openrouter"` plus the configured `model`.
 - If the key is missing, the network request fails, or the model returns an invalid shape, the same routes return `source: "fallback"` with deterministic demo data.
+- Responses include skill metadata such as `skillId`, `skillName`, `skillVersion`, and `guarded`.
 - The UI shows product-facing labels: `Live FoodLoop AI` for live responses and `Fallback demo data` for fallback responses. Provider/model details stay in secondary notes or tooltips.
-- Charts, route estimates, ESG numbers, and partner records remain mock metrics for pitch communication.
+- Handling labels, route facts, NGO candidate IDs, ESG numbers, and partner records are guarded by TypeScript normalization and deterministic demo data.
 
 The prototype labels AI as decision support. It does not certify food safety.
 
@@ -66,6 +83,6 @@ Future production path:
 
 - Slide 9 product demo: capture Intake, Matching, and Dispatch at 1440x900.
 - Slide 10 impact proof: capture Impact after `Complete pickup`.
-- Slide 11 technical moat: capture Architecture with the full four-layer diagram.
+- Slide 11 technical moat: capture AI Skills with the prompt expanders and guardrail notes.
 - For video, use the guided CTA and keep each screen on camera for 8-12 seconds.
 - Use desktop viewport first. Mobile is responsive for review, but desktop is the presentation target.

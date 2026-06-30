@@ -1,6 +1,7 @@
 import { Braces, Check, Copy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AIModelOutput, AISource } from "./types";
+import type { AISkillTaggedResponse } from "./ai/skillTypes";
 
 type CopyState = "idle" | "copied" | "failed";
 
@@ -28,11 +29,13 @@ export function AIOutputViewer({
   modelOutput,
   className,
   label = "Live AI model output",
+  skillMetadata,
 }: {
   source?: AISource | null;
   modelOutput?: AIModelOutput;
   className?: string;
   label?: string;
+  skillMetadata?: AISkillTaggedResponse | null;
 }) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const resetTimeoutRef = useRef<number | null>(null);
@@ -44,6 +47,7 @@ export function AIOutputViewer({
     [modelOutput, source],
   );
   const hasModelJson = Boolean(formattedOutput);
+  const hasSkillMetadata = Boolean(skillMetadata?.skillId);
 
   useEffect(
     () => () => {
@@ -109,11 +113,26 @@ export function AIOutputViewer({
           <span>{label}</span>
         </span>
         <span className="ai-output-summary-state">
-          {hasModelJson ? "JSON available" : "No live output"}
+          {hasSkillMetadata
+            ? skillMetadata?.skillName
+            : hasModelJson
+              ? "JSON available"
+              : "No live output"}
         </span>
       </summary>
 
       <div className="ai-output-body">
+        {hasSkillMetadata ? (
+          <div className="ai-skill-metadata" aria-label="AI skill metadata">
+            <span>{skillMetadata?.skillId}</span>
+            <span>{skillMetadata?.skillVersion}</span>
+            {skillMetadata?.guarded ? <span>Guarded output</span> : null}
+            {skillMetadata?.supportingSkills?.map((skill) => (
+              <span key={skill.skillId}>{skill.skillName}</span>
+            ))}
+          </div>
+        ) : null}
+
         {hasModelJson ? (
           <>
             <div className="ai-output-toolbar">

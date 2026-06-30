@@ -114,6 +114,11 @@ function normaliseImpactSummary(
     source,
     model: value.model,
     modelOutput: source === "openrouter" ? value.modelOutput : undefined,
+    skillId: value.skillId,
+    skillName: value.skillName,
+    skillVersion: value.skillVersion,
+    guarded: value.guarded,
+    supportingSkills: value.supportingSkills,
   };
 }
 
@@ -212,6 +217,11 @@ export function SharedImpactPage({
           ...impactAgentSummary,
           caveat: `${impactAgentSummary.caveat} Live FoodLoop AI was unavailable, so fallback demo data prepared this summary.`,
           source: "fallback",
+          skillId: impactAgentSummary.skillId,
+          skillName: impactAgentSummary.skillName,
+          skillVersion: impactAgentSummary.skillVersion,
+          guarded: impactAgentSummary.guarded,
+          supportingSkills: impactAgentSummary.supportingSkills,
         });
       })
       .finally(() => {
@@ -323,6 +333,7 @@ export function SharedImpactPage({
             <AIOutputViewer
               source={activeImpactSummary.source}
               modelOutput={activeImpactSummary.modelOutput}
+              skillMetadata={activeImpactSummary}
             />
           ) : null}
         </section>
