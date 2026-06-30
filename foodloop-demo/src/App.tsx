@@ -41,6 +41,7 @@ import {
   photoScenarios,
   stubContent,
 } from "./data";
+import { AIOutputViewer } from "./AIOutputViewer";
 import { NGOMatchQueuePage } from "./NGOMatchQueuePage";
 import { SharedImpactPage } from "./SharedImpactPage";
 import { SharedRoutePage } from "./SharedRoutePage";
@@ -159,32 +160,37 @@ const getScenarioFallbackIntake = (
 const normaliseIntakeResponse = (
   value: Partial<IntakeAgentResponse>,
   scenario: PhotoScenario,
-): IntakeAgentResponse => ({
-  draft: {
-    ...scenario.fallbackDraft,
-    ...value.draft,
-    handlingPriority:
-      value.draft?.handlingPriority ?? scenario.fallbackDraft.handlingPriority,
-  },
-  recommendation: {
-    ...scenario.fallbackRecommendation,
-    ...value.recommendation,
-    handlingPriority:
-      value.recommendation?.handlingPriority ??
-      value.draft?.handlingPriority ??
-      scenario.fallbackRecommendation.handlingPriority,
-  },
-  forecast: {
-    ...scenario.forecast,
-    ...value.forecast,
-  },
-  sensorEvidence: {
-    ...scenario.sensorEvidence,
-    ...value.sensorEvidence,
-  },
-  source: value.source === "openrouter" ? "openrouter" : "fallback",
-  model: value.model,
-});
+): IntakeAgentResponse => {
+  const source = value.source === "openrouter" ? "openrouter" : "fallback";
+
+  return {
+    draft: {
+      ...scenario.fallbackDraft,
+      ...value.draft,
+      handlingPriority:
+        value.draft?.handlingPriority ?? scenario.fallbackDraft.handlingPriority,
+    },
+    recommendation: {
+      ...scenario.fallbackRecommendation,
+      ...value.recommendation,
+      handlingPriority:
+        value.recommendation?.handlingPriority ??
+        value.draft?.handlingPriority ??
+        scenario.fallbackRecommendation.handlingPriority,
+    },
+    forecast: {
+      ...scenario.forecast,
+      ...value.forecast,
+    },
+    sensorEvidence: {
+      ...scenario.sensorEvidence,
+      ...value.sensorEvidence,
+    },
+    source,
+    model: value.model,
+    modelOutput: source === "openrouter" ? value.modelOutput : undefined,
+  };
+};
 
 async function requestIntakeDraft(
   scenario: PhotoScenario,
@@ -248,6 +254,7 @@ async function requestMatchRanking(
     }
 
     const value = (await response.json()) as Partial<MatchRankAgentResponse>;
+    const source = value.source === "openrouter" ? "openrouter" : "fallback";
     const result: MatchRankAgentResponse = {
       candidates:
         Array.isArray(value.candidates) && value.candidates.length > 0
@@ -257,8 +264,9 @@ async function requestMatchRanking(
       ngoFitExplanation: value.ngoFitExplanation || fallback.ngoFitExplanation,
       handlingNotes: value.handlingNotes || fallback.handlingNotes,
       routePreview: value.routePreview || fallback.routePreview,
-      source: value.source === "openrouter" ? "openrouter" : "fallback",
+      source,
       model: value.model,
+      modelOutput: source === "openrouter" ? value.modelOutput : undefined,
     };
 
     if (result.source === "openrouter") {
@@ -799,6 +807,7 @@ function DonorIntakePage({
             sensorEvidence={currentSensorEvidence}
             intakeSource={intakeSource}
             intakeModel={intakeModel}
+            modelOutput={intakeResult?.modelOutput}
             onFieldChange={handleFieldChange}
             onValueChange={handleDraftValueChange}
             onContinue={handleContinueToConfirm}
@@ -1126,6 +1135,7 @@ function ReviewStagePanel({
   sensorEvidence: scenarioSensorEvidence,
   intakeSource,
   intakeModel,
+  modelOutput,
   onFieldChange,
   onValueChange,
   onContinue,
@@ -1137,6 +1147,7 @@ function ReviewStagePanel({
   sensorEvidence: SensorEvidence;
   intakeSource: AISource | null;
   intakeModel?: string;
+  modelOutput?: IntakeAgentResponse["modelOutput"];
   onFieldChange: (
     field: keyof BatchDraft,
   ) => (
@@ -1181,6 +1192,9 @@ function ReviewStagePanel({
             : "Analyze the photo to prepare a donor-editable review draft."}
         </p>
       </div>
+      {intakeSource ? (
+        <AIOutputViewer source={intakeSource} modelOutput={modelOutput} />
+      ) : null}
 
       <div className="evidence-chip-grid" aria-label="Forecast and evidence">
         <EvidenceChip

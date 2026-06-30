@@ -13,6 +13,7 @@ const openRouterMaxAttempts = 2;
 const openRouterRetryDelayMs = 700;
 
 type AISource = "openrouter" | "fallback";
+type AIModelOutput = Record<string, unknown>;
 type HandlingPriority = "Low handling risk" | "Needs confirmation" | "Short window";
 type AgentAction = "request-info" | "decline";
 
@@ -85,6 +86,7 @@ interface IntakeAgentResponse {
   sensorEvidence: SensorEvidence;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 interface MatchFactors {
@@ -123,6 +125,7 @@ interface MatchRankAgentResponse {
   routePreview: string;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 interface MatchingAgentRequest {
@@ -143,6 +146,7 @@ interface MatchingAgentResponse {
   confidenceNote: string;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 interface ImpactAgentRequest {
@@ -174,6 +178,7 @@ interface ImpactAgentResponse {
   caveat: string;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 interface ReadableRequestBody {
@@ -467,7 +472,10 @@ const requestNormalisedOpenRouterJson = async <T>({
   messages: Array<{ role: "system" | "user"; content: string }>;
   normalise: (value: unknown) => T | null;
   invalidDetail: string;
-}): Promise<{ ok: true; response: T } | { ok: false; detail: string }> => {
+}): Promise<
+  | { ok: true; response: T; modelOutput: AIModelOutput }
+  | { ok: false; detail: string }
+> => {
   let fallbackDetail =
     "Live FoodLoop AI request failed or timed out; using fallback demo data.";
 
@@ -494,10 +502,11 @@ const requestNormalisedOpenRouterJson = async <T>({
         continue;
       }
 
-      const response = normalise(parseAgentJson(result.content));
+      const modelOutput = parseAgentJson(result.content);
+      const response = normalise(modelOutput);
 
-      if (response) {
-        return { ok: true, response };
+      if (response && isRecord(modelOutput)) {
+        return { ok: true, response, modelOutput };
       }
 
       fallbackDetail = invalidDetail;
@@ -995,7 +1004,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             devResponse,
             200,
             result.ok
-              ? result.response
+              ? { ...result.response, modelOutput: result.modelOutput }
               : fallbackIntakeResponse(payload.scenario, result.detail),
           );
         } catch {
@@ -1090,7 +1099,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             devResponse,
             200,
             result.ok
-              ? result.response
+              ? { ...result.response, modelOutput: result.modelOutput }
               : fallbackMatchRankResponse(payload, result.detail),
           );
         } catch {
@@ -1169,7 +1178,9 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
           sendJson(
             devResponse,
             200,
-            result.ok ? result.response : fallbackResponse(action, result.detail),
+            result.ok
+              ? { ...result.response, modelOutput: result.modelOutput }
+              : fallbackResponse(action, result.detail),
           );
         } catch {
           sendJson(
@@ -1243,7 +1254,7 @@ const createMatchingAgentPlugin = (mode: string): Plugin => {
             devResponse,
             200,
             result.ok
-              ? result.response
+              ? { ...result.response, modelOutput: result.modelOutput }
               : fallbackImpactAgentResponse(result.detail),
           );
         } catch {

@@ -19,6 +19,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { AIOutputViewer } from "./AIOutputViewer";
 import {
   impactAgentSummary,
   impactCumulativeMetricDefinitions,
@@ -100,6 +101,8 @@ function formatMetricValue(value: number, metric: ImpactMetricDefinition) {
 function normaliseImpactSummary(
   value: Partial<ImpactAgentSummary>,
 ): ImpactAgentSummary {
+  const source = value.source === "openrouter" ? "openrouter" : "fallback";
+
   return {
     title: value.title || impactAgentSummary.title,
     intro: value.intro || impactAgentSummary.intro,
@@ -108,8 +111,9 @@ function normaliseImpactSummary(
         ? value.points.filter(Boolean).slice(0, 4)
         : impactAgentSummary.points,
     caveat: value.caveat || impactAgentSummary.caveat,
-    source: value.source === "openrouter" ? "openrouter" : "fallback",
+    source,
     model: value.model,
+    modelOutput: source === "openrouter" ? value.modelOutput : undefined,
   };
 }
 
@@ -314,6 +318,13 @@ export function SharedImpactPage({
                 : ""}
             </p>
           </div>
+
+          {impactSummary ? (
+            <AIOutputViewer
+              source={activeImpactSummary.source}
+              modelOutput={activeImpactSummary.modelOutput}
+            />
+          ) : null}
         </section>
 
         <section

@@ -2,6 +2,8 @@ export type Role = "donor" | "ngo";
 
 export type AISource = "openrouter" | "fallback";
 
+export type AIModelOutput = Record<string, unknown>;
+
 export type ScenarioId = "bakery" | "sandwiches" | "fruit";
 
 export type DemoPageId =
@@ -86,6 +88,7 @@ export interface IntakeAgentResponse {
   sensorEvidence: SensorEvidence;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 export type MatchFactorKey =
@@ -139,6 +142,7 @@ export interface MatchQueueBatch {
   candidates: NGOCandidate[];
   aiSource?: AISource;
   aiModel?: string;
+  modelOutput?: AIModelOutput;
   scenarioId?: ScenarioId;
   recipientProgress: Array<{
     label: string;
@@ -154,6 +158,7 @@ export interface MatchRankAgentResponse {
   routePreview: string;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 export interface AcceptedRouteMatch {
@@ -189,6 +194,7 @@ export interface AIModalResponse {
   confidenceNote: string;
   source: "openrouter" | "fallback";
   model?: string;
+  modelOutput?: AIModelOutput;
 }
 
 export type RouteStopKind = "pickup" | "dropoff";
@@ -291,4 +297,5 @@ export interface ImpactAgentSummary {
   caveat: string;
   source: AISource;
   model?: string;
+  modelOutput?: AIModelOutput;
 }

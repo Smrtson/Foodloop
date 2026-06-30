@@ -21,6 +21,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { AIOutputViewer } from "./AIOutputViewer";
 import { fallbackAIModalCopy } from "./data";
 import type {
   AISource,
@@ -145,6 +146,7 @@ function normaliseModalResponse(
   action: AIModalAction,
 ): AIModalResponse {
   const fallback = getFallbackResponse(action);
+  const source = value.source === "openrouter" ? "openrouter" : "fallback";
 
   return {
     title: value.title || fallback.title,
@@ -155,8 +157,9 @@ function normaliseModalResponse(
         ? value.nextSteps.filter(Boolean)
         : fallback.nextSteps,
     confidenceNote: value.confidenceNote || fallback.confidenceNote,
-    source: value.source === "openrouter" ? "openrouter" : "fallback",
+    source,
     model: value.model,
+    modelOutput: source === "openrouter" ? value.modelOutput : undefined,
   };
 }
 
@@ -588,6 +591,10 @@ function MatchingAgentPanel({
           value={candidate.serviceWindow}
         />
       </div>
+
+      {batch.aiSource ? (
+        <AIOutputViewer source={batch.aiSource} modelOutput={batch.modelOutput} />
+      ) : null}
     </section>
   );
 }
@@ -883,6 +890,11 @@ function AIAgentModal({
                 {response.confidenceNote}
               </span>
             </div>
+
+            <AIOutputViewer
+              source={response.source}
+              modelOutput={response.modelOutput}
+            />
           </>
         )}
 

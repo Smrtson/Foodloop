@@ -835,6 +835,7 @@ export function buildGeneratedBatchFromDraft({
     candidates,
     aiSource: matchResponse.source,
     aiModel: matchResponse.model,
+    modelOutput: matchResponse.modelOutput,
     scenarioId: scenario.id,
     recipientProgress: [
       { label: "Submitted", status: "done" },
